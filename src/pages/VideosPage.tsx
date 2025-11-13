@@ -1,14 +1,12 @@
 
 import React from 'react';
-import { Video, QuizQuestion, UserProfile } from '../types';
+import { Video, UserProfile } from '../types';
 import { Heart, MessageCircle, Share2, MoreVertical } from 'lucide-react';
 import QuiziGame from '../components/QuiziGame';
 
 interface VideosPageProps {
   isInLiveQuiz: boolean;
   onLeaveLiveQuiz: () => void;
-  activeQuestion: QuizQuestion | null;
-  totalQuestions: number;
   currentUser: UserProfile | null;
   onLoginRequest: () => void;
   liveStreamUrl: string;
@@ -64,8 +62,6 @@ const VideosPage: React.FC<VideosPageProps> = (props) => {
     if (props.isInLiveQuiz) {
         return (
             <QuiziGame
-                activeQuestion={props.activeQuestion}
-                totalQuestions={props.totalQuestions}
                 currentUser={props.currentUser}
                 onLoginRequest={props.onLoginRequest}
                 onLeaveLiveQuiz={props.onLeaveLiveQuiz}

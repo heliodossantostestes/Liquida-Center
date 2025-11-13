@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Bell, Coins, Menu, ShoppingCart, MapPin, ChevronDown, User } from 'lucide-react';
+import { Search, ShoppingCart, MapPin, ChevronDown, User, Menu } from 'lucide-react';
 import { Page, UserProfile } from '../types';
 
 interface HeaderProps {
@@ -9,6 +9,7 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ currentUser, onNavigate }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const defaultAvatar = `https://i.pravatar.cc/48?u=${currentUser?.id || 'default'}`;
 
   return (
     <header className="bg-gray-900/80 backdrop-blur-sm sticky top-0 z-40 shadow-lg shadow-brand-purple/10">
@@ -20,7 +21,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, onNavigate }) => {
               Liquida<span className="text-white">Center</span>
             </h1>
           </div>
-          <div className="flex-grow max-w-lg mx-4">
+          <div className="flex-grow max-w-lg mx-4 hidden md:block">
             <div className="relative">
               <input 
                 type="text" 
@@ -32,14 +33,14 @@ const Header: React.FC<HeaderProps> = ({ currentUser, onNavigate }) => {
           </div>
           <div className="flex items-center space-x-4">
             {currentUser ? (
-                 <div className="flex items-center space-x-1 bg-gray-800 p-2 rounded-full cursor-pointer" onClick={() => onNavigate('profile')}>
-                    <User className="h-5 w-5 text-gray-300" />
-                    <span className="font-bold text-white text-sm">{currentUser.name}</span>
+                 <div className="flex items-center space-x-2 bg-gray-800 p-1 pr-3 rounded-full cursor-pointer" onClick={() => onNavigate('profile')}>
+                    <img src={currentUser.avatarUrl || defaultAvatar} alt="User Avatar" className="h-8 w-8 rounded-full" />
+                    <span className="font-bold text-white text-sm hidden sm:block">{currentUser.displayName || currentUser.name}</span>
                  </div>
             ) : (
                 <div className="hidden md:flex items-center space-x-4 text-sm">
-                    <a href="#" onClick={(e) => { e.preventDefault(); onNavigate('profile');}} className="hover:text-brand-purple-light transition-colors">Crie sua conta</a>
-                    <a href="#" onClick={(e) => { e.preventDefault(); onNavigate('profile');}} className="hover:text-brand-purple-light transition-colors">Entre</a>
+                    <button onClick={() => onNavigate('profile')} className="hover:text-brand-purple-light transition-colors">Crie sua conta</button>
+                    <button onClick={() => onNavigate('profile')} className="hover:text-brand-purple-light transition-colors">Entre</button>
                 </div>
             )}
             <button className="text-gray-300 hover:text-white transition-colors">
@@ -56,7 +57,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, onNavigate }) => {
                     <span>Categorias</span>
                     <ChevronDown className={`h-4 w-4 transition-transform ${isMenuOpen ? 'rotate-180' : ''}`} />
                     {isMenuOpen && (
-                         <div className="absolute top-full mt-2 w-48 bg-gray-800 rounded-md shadow-lg py-2 border border-brand-purple/30">
+                         <div className="absolute top-full mt-2 w-48 bg-gray-800 rounded-md shadow-lg py-2 border border-brand-purple/30 z-50">
                             <a href="#" className="block px-4 py-2 hover:bg-brand-purple-dark">Supermercado</a>
                             <a href="#" className="block px-4 py-2 hover:bg-brand-purple-dark">Moda</a>
                             <a href="#" className="block px-4 py-2 hover:bg-brand-purple-dark">Tecnologia</a>

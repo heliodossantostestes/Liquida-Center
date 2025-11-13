@@ -5,21 +5,13 @@ import HomePage from './pages/HomePage';
 import ShopPage from './pages/ShopPage';
 import VideosPage from './pages/VideosPage';
 import ProfilePage from './pages/ProfilePage';
-import { Page, UserProfile, QuizQuestion } from './types';
+import { Page, UserProfile } from './types';
 import { ShoppingBag, Clapperboard, User, Home, Shield } from 'lucide-react';
-
-const initialMockQuestions: QuizQuestion[] = [
-    { id: 'q1', question: "Os abacates crescem em árvores ou arbustos?", options: ["Árvores", "Arbustos"], correctAnswerIndex: 0, difficulty: 'Fácil' },
-    { id: 'q2', question: "Qual a capital do Brasil?", options: ["Brasília", "São Paulo"], correctAnswerIndex: 0, difficulty: 'Fácil' },
-    { id: 'q3', question: "Qual o maior planeta do sistema solar?", options: ["Terra", "Júpiter"], correctAnswerIndex: 1, difficulty: 'Intermediário' },
-];
 
 const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<Page>('home');
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [isInLiveQuiz, setIsInLiveQuiz] = useState(false);
-  const [liveQuizQuestions, setLiveQuizQuestions] = useState<QuizQuestion[]>(initialMockQuestions);
-  const [activeLiveQuestion, setActiveLiveQuestion] = useState<QuizQuestion | null>(null);
   const [liveStreamUrl, setLiveStreamUrl] = useState<string>('https://vdo.ninja/?scene=0&room=CELULARESESTUDIOPHS&sas');
 
   const handleJoinLiveQuiz = async () => {
@@ -30,18 +22,14 @@ const App: React.FC = () => {
     try {
       await fetch('/api/live-stats', { method: 'POST', body: JSON.stringify({ action: 'join' }) });
       setIsInLiveQuiz(true);
-      setCurrentPage('videos');
     } catch (err) {
       console.error("Failed to join live stats:", err);
-      // Still join the quiz visually even if stats fail
-      setIsInLiveQuiz(true);
-      setCurrentPage('videos');
+      setIsInLiveQuiz(true); // Still join visually even if stats fail
     }
   };
 
   const handleLeaveLiveQuiz = async () => {
     try {
-      // Use keepalive to ensure the request is sent even if the page is closing
       await fetch('/api/live-stats', { method: 'POST', body: JSON.stringify({ action: 'leave' }), keepalive: true });
     } catch (err) {
       console.error("Failed to leave live stats:", err);
@@ -59,17 +47,15 @@ const App: React.FC = () => {
       case 'videos':
         return (
           <VideosPage 
-            isInLiveQuiz={isInLiveQuiz} 
+            isInLiveQuiz={false} // Default view is not the quiz
             onLeaveLiveQuiz={handleLeaveLiveQuiz}
-            activeQuestion={activeLiveQuestion}
-            totalQuestions={liveQuizQuestions.length}
             currentUser={currentUser}
             onLoginRequest={() => setCurrentPage('profile')}
             liveStreamUrl={liveStreamUrl}
           />
         );
       case 'profile':
-        return <ProfilePage currentUser={currentUser} setCurrentUser={setCurrentUser} setLiveQuizQuestions={setLiveQuizQuestions} setActiveLiveQuestion={setActiveLiveQuestion} liveStreamUrl={liveStreamUrl} setLiveStreamUrl={setLiveStreamUrl} />;
+        return <ProfilePage currentUser={currentUser} setCurrentUser={setCurrentUser} liveStreamUrl={liveStreamUrl} setLiveStreamUrl={setLiveStreamUrl} />;
       default:
         return <HomePage onJoinLiveQuiz={handleJoinLiveQuiz} />;
     }
@@ -95,13 +81,10 @@ const App: React.FC = () => {
   }, [currentUser]);
 
   if (isInLiveQuiz) {
-    // Render only the quiz game in a full-screen-like mode
      return (
         <VideosPage 
-            isInLiveQuiz={isInLiveQuiz} 
+            isInLiveQuiz={true} 
             onLeaveLiveQuiz={handleLeaveLiveQuiz}
-            activeQuestion={activeLiveQuestion}
-            totalQuestions={liveQuizQuestions.length}
             currentUser={currentUser}
             onLoginRequest={() => {
               handleLeaveLiveQuiz();

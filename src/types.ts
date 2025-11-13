@@ -14,7 +14,6 @@ export interface Video {
     id: number;
     user: string;
     avatar: string;
-
     url: string;
     description: string;
 }
@@ -32,16 +31,11 @@ export type UserRole = 'user' | 'merchant' | 'admin';
 
 export interface UserProfile {
   id: string;
-  name: string;
+  name: string; // nome base (ex: "Usuário Teste")
   email: string;
   role: UserRole;
-}
-
-export interface QuizRanking {
-  id: string;
-  name: string;
-  score: number;
-  totalQuestions: number;
+  displayName?: string; // nome de exibição escolhido
+  avatarUrl?: string;   // URL da foto de perfil
 }
 
 export interface QuizWinner {
@@ -49,4 +43,23 @@ export interface QuizWinner {
   name: string;
   winDate: string;
   prizeAmount: number;
+}
+
+export interface ChatMessage {
+  id: string;
+  userName: string;
+  role: UserRole;
+  text: string;
+  createdAt: string;
+}
+
+export interface LiveQuestion {
+    active: boolean;
+    id: string | null;
+    question: string;
+    optionA: string;
+    optionB: string;
+    difficulty: 'Fácil' | 'Intermediário' | 'Difícil' | null;
+    status: 'idle' | 'running' | 'ended';
+    startedAt: string | null;
 }
