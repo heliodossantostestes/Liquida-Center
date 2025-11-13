@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { UserProfile, ChatMessage, LiveQuestion } from '../types';
-import { Clock, CheckCircle, XCircle, Users, Heart, Send, Loader } from 'lucide-react';
+import { Clock, CheckCircle, XCircle, Users, Heart, Send, Loader, User } from 'lucide-react';
 import QuizChat from './QuizChat';
 
 interface QuiziGameProps {
@@ -11,29 +10,20 @@ interface QuiziGameProps {
     liveStreamUrl: string;
 }
 
-interface AnimatedHeart {
-    id: number;
-    x: number;
-    y: number;
-    size: number;
-}
-
-interface LiveStats {
-    viewers: number;
-    likes: number;
-}
+interface AnimatedHeart { id: number; x: number; y: number; size: number; }
+interface LiveStats { viewers: number; likes: number; }
+interface VoteResults { percentages: [number, number]; totalVotes: number; }
 
 const QuiziGame: React.FC<QuiziGameProps> = ({ currentUser, onLoginRequest, onLeaveLiveQuiz, liveStreamUrl }) => {
     const [liveQuestion, setLiveQuestion] = useState<LiveQuestion | null>(null);
     const [timeLeft, setTimeLeft] = useState(15);
     const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
     const [showResults, setShowResults] = useState(false);
-    const [answerPercentages, setAnswerPercentages] = useState<[number, number] | null>(null);
+    const [voteResults, setVoteResults] = useState<VoteResults | null>(null);
     const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
     const [newMessage, setNewMessage] = useState('');
     const [animatedHearts, setAnimatedHearts] = useState<AnimatedHeart[]>([]);
     const [isVideoLoading, setIsVideoLoading] = useState(true);
-    const [isEligibleForPrize, setIsEligibleForPrize] = useState(true);
     const [liveStats, setLiveStats] = useState<LiveStats>({ viewers: 0, likes: 0 });
 
     const prevQuestionId = useRef<string | null>(null);
@@ -48,63 +38,36 @@ const QuiziGame: React.FC<QuiziGameProps> = ({ currentUser, onLoginRequest, onLe
             url.searchParams.set('cleanish', 'true');
             url.searchParams.delete('mute');
             return url.toString();
-        } catch (e) {
-            return liveStreamUrl;
-        }
+        } catch (e) { return liveStreamUrl; }
     }, [liveStreamUrl]);
 
-    // Polling effect for all live data
     useEffect(() => {
         const pollData = async () => {
             try {
-                // Fetch live question
-                const questionRes = await fetch('/api/live-question');
+                const [questionRes, chatRes, statsRes] = await Promise.all([
+                    fetch('/api/live-question'),
+                    fetch('/api/live-chat'),
+                    fetch('/api/live-stats')
+                ]);
                 if (questionRes.ok) {
                     const questionData = await questionRes.json();
                     setLiveQuestion(questionData.active ? questionData : null);
                 }
-                // Fetch chat messages
-                const chatRes = await fetch('/api/live-chat');
                 if (chatRes.ok) setChatMessages(await chatRes.json());
-
-                // Fetch live stats
-                const statsRes = await fetch('/api/live-stats');
                 if (statsRes.ok) setLiveStats(await statsRes.json());
-
-            } catch (err) {
-                console.error("Polling error:", err);
-            }
+            } catch (err) { console.error("Polling error:", err); }
         };
-
-        pollData(); // Initial fetch
-        pollIntervalRef.current = window.setInterval(pollData, 2000); // Poll every 2 seconds
-
+        pollData();
+        pollIntervalRef.current = window.setInterval(pollData, 2000);
         return () => clearInterval(pollIntervalRef.current);
     }, []);
-
-    const displayResults = () => {
-        if (!liveQuestion) return;
-        setShowResults(true);
-  
-        // Generate mock percentages for demonstration
-        const correctVotePercentage = Math.floor(Math.random() * 41) + 50; // 50% to 90%
-        const incorrectVotePercentage = 100 - correctVotePercentage;
-        
-        const percentages: [number, number] = [0, 0];
-        if(liveQuestion.correctAnswerIndex !== null) {
-            percentages[liveQuestion.correctAnswerIndex] = correctVotePercentage;
-            percentages[1 - liveQuestion.correctAnswerIndex] = incorrectVotePercentage;
-        }
-        
-        setAnswerPercentages(percentages);
-      };
 
     useEffect(() => {
         if (liveQuestion && liveQuestion.id !== prevQuestionId.current) {
             prevQuestionId.current = liveQuestion.id;
             setShowResults(false);
             setSelectedAnswer(null);
-            setAnswerPercentages(null);
+            setVoteResults(null);
             setTimeLeft(15);
         }
     }, [liveQuestion]);
@@ -114,55 +77,52 @@ const QuiziGame: React.FC<QuiziGameProps> = ({ currentUser, onLoginRequest, onLe
             timerRef.current = window.setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
         } else if (liveQuestion && !showResults && timeLeft === 0) {
             window.clearTimeout(timerRef.current);
-            if (selectedAnswer === null) {
-                setIsEligibleForPrize(false);
-            }
-            displayResults();
+            setShowResults(true);
         }
         return () => window.clearTimeout(timerRef.current);
-    }, [liveQuestion, showResults, timeLeft, selectedAnswer]);
+    }, [liveQuestion, showResults, timeLeft]);
 
-
-    const handleAnswerClick = (index: number) => {
-        if (selectedAnswer !== null || !liveQuestion || timeLeft === 0) return;
-        setSelectedAnswer(index);
-        
-        if (index !== liveQuestion.correctAnswerIndex) {
-            setIsEligibleForPrize(false);
+    useEffect(() => {
+        let resultPollInterval: number | undefined;
+        const fetchResults = async () => {
+            if (!liveQuestion?.id) return;
+            try {
+                const res = await fetch(`/api/live-vote?questionId=${liveQuestion.id}`);
+                if (res.ok) setVoteResults(await res.json());
+            } catch (err) { console.error("Failed to fetch vote results:", err); }
+        };
+        if (showResults) {
+            fetchResults();
+            resultPollInterval = window.setInterval(fetchResults, 2000);
         }
+        return () => clearInterval(resultPollInterval);
+    }, [showResults, liveQuestion]);
+
+    const handleAnswerClick = async (index: number) => {
+        if (selectedAnswer !== null || !liveQuestion || !currentUser || timeLeft === 0) return;
+        setSelectedAnswer(index);
+        try {
+            await fetch('/api/live-vote', {
+                method: 'POST',
+                body: JSON.stringify({ questionId: liveQuestion.id, userId: currentUser.id, voteIndex: index })
+            });
+        } catch (err) { console.error("Failed to submit vote:", err); }
     };
 
-    const handleExitGame = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        onLeaveLiveQuiz();
-    };
-    
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newMessage.trim()) return;
-        if (!currentUser) {
-            onLoginRequest();
-            return;
-        }
+        if (!newMessage.trim() || !currentUser) return;
         try {
             const res = await fetch('/api/live-chat', {
                 method: 'POST',
-                body: JSON.stringify({
-                    userName: currentUser.displayName || currentUser.name,
-                    role: currentUser.role,
-                    text: newMessage.trim(),
-                }),
+                body: JSON.stringify({ userName: currentUser.displayName || currentUser.name, role: currentUser.role, text: newMessage.trim() }),
             });
             if (res.ok) {
                 const newMsg = await res.json();
                 setChatMessages(prev => [...prev, newMsg]);
                 setNewMessage('');
-            } else {
-                alert('Erro ao enviar mensagem.');
             }
-        } catch (err) {
-            console.error("Failed to send message", err);
-        }
+        } catch (err) { console.error("Failed to send message", err); }
     };
 
     const handleLikeClick = async (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -170,9 +130,7 @@ const QuiziGame: React.FC<QuiziGameProps> = ({ currentUser, onLoginRequest, onLe
         try {
             const res = await fetch('/api/live-stats', { method: 'POST', body: JSON.stringify({ action: 'like' }) });
             if (res.ok) setLiveStats(await res.json());
-        } catch (err) {
-            console.error("Failed to like:", err);
-        }
+        } catch (err) { console.error("Failed to like:", err); }
 
         const rect = e.currentTarget.getBoundingClientRect();
         setAnimatedHearts(prev => [...prev, { id: Date.now(), x: rect.left, y: rect.top, size: 24 }]);
@@ -182,16 +140,9 @@ const QuiziGame: React.FC<QuiziGameProps> = ({ currentUser, onLoginRequest, onLe
     const getButtonClass = (index: number) => {
         if (showResults && liveQuestion && liveQuestion.correctAnswerIndex !== null) {
             const isCorrect = index === liveQuestion.correctAnswerIndex;
-            const isSelected = index === selectedAnswer;
-            if (isCorrect) return "bg-green-600";
-            if (isSelected && !isCorrect) return "bg-red-600";
-            return "bg-gray-700 opacity-60";
+            return isCorrect ? "bg-green-600" : "bg-red-600";
         }
-        
-        if (selectedAnswer === index) {
-            return "bg-brand-purple ring-2 ring-white";
-        }
-        
+        if (selectedAnswer === index) return "bg-brand-purple ring-2 ring-white";
         return "bg-gray-700 hover:bg-brand-purple-dark";
     };
 
@@ -204,7 +155,9 @@ const QuiziGame: React.FC<QuiziGameProps> = ({ currentUser, onLoginRequest, onLe
             <header className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/70 to-transparent z-20">
                 <div className="flex justify-between items-start">
                     <div className="flex items-center space-x-3 bg-black/30 backdrop-blur-sm p-2 rounded-full">
-                        <img src="https://i.pravatar.cc/48?u=helio-santos-admin" alt="Apresentador" className="w-12 h-12 rounded-full border-2 border-brand-purple-light" />
+                        <div className="w-12 h-12 rounded-full border-2 border-brand-purple-light bg-gray-700 flex items-center justify-center">
+                            <User className="text-brand-purple-light h-6 w-6"/>
+                        </div>
                         <div>
                             <h3 className="font-bold text-white text-md leading-tight">Hélio Santos</h3>
                             <p className="text-gray-300 text-xs leading-tight">Apresentador</p>
@@ -214,7 +167,7 @@ const QuiziGame: React.FC<QuiziGameProps> = ({ currentUser, onLoginRequest, onLe
                     <div className="flex items-center space-x-4">
                         <div className="flex items-center space-x-1 bg-black/30 backdrop-blur-sm p-2 rounded-full"><Users className="h-5 w-5 text-gray-300" /><span className="font-bold text-white text-sm">{liveStats.viewers}</span></div>
                         <div className="flex items-center space-x-1 bg-black/30 backdrop-blur-sm p-2 rounded-full"><Heart className="h-5 w-5 text-red-500" /><span className="font-bold text-white text-sm">{liveStats.likes.toLocaleString('pt-BR')}</span></div>
-                        <button onClick={handleExitGame} className="bg-black/30 backdrop-blur-sm text-white font-semibold py-2 px-4 rounded-full hover:bg-red-600 transition-colors">Sair</button>
+                        <button onClick={onLeaveLiveQuiz} className="bg-black/30 backdrop-blur-sm text-white font-semibold py-2 px-4 rounded-full hover:bg-red-600 transition-colors">Sair</button>
                     </div>
                 </div>
             </header>
@@ -243,12 +196,6 @@ const QuiziGame: React.FC<QuiziGameProps> = ({ currentUser, onLoginRequest, onLe
                             </div>
                         </div>
 
-                        {!isEligibleForPrize && (
-                            <div className="text-center text-yellow-400 bg-black/30 p-2 rounded-md text-sm font-semibold mb-4 border border-yellow-500/50">
-                                Você não está mais concorrendo ao prêmio, mas continue jogando!
-                            </div>
-                        )}
-
                         <p className="text-xl font-semibold mb-6 text-center">{liveQuestion.question}</p>
                         <div className="space-y-4">
                             {[liveQuestion.optionA, liveQuestion.optionB].map((option, index) => (
@@ -260,12 +207,12 @@ const QuiziGame: React.FC<QuiziGameProps> = ({ currentUser, onLoginRequest, onLe
                                 >
                                     <div className="flex items-center">
                                       <span>{option}</span>
-                                      {showResults && liveQuestion.correctAnswerIndex !== null && (
-                                        index === liveQuestion.correctAnswerIndex ? <CheckCircle className="ml-3 text-white"/> : (selectedAnswer === index && <XCircle className="ml-3 text-white"/>)
+                                      {showResults && selectedAnswer === index && liveQuestion.correctAnswerIndex !== null && (
+                                        index === liveQuestion.correctAnswerIndex ? <CheckCircle className="ml-3 text-white"/> : <XCircle className="ml-3 text-white"/>
                                       )}
                                     </div>
-                                    {showResults && answerPercentages && (
-                                        <span className="text-base font-bold text-white/80">{answerPercentages[index]}%</span>
+                                    {showResults && voteResults && (
+                                        <span className="text-base font-bold text-white/80">{voteResults.percentages[index]}%</span>
                                     )}
                                 </button>
                             ))}
