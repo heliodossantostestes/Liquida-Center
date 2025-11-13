@@ -20,22 +20,21 @@ const App: React.FC = () => {
   const [isQuizActive, setIsQuizActive] = useState(false);
   const [liveQuizQuestions, setLiveQuizQuestions] = useState<QuizQuestion[]>(initialMockQuestions);
   const [activeLiveQuestion, setActiveLiveQuestion] = useState<QuizQuestion | null>(null);
-  const [liveStreamUrl, setLiveStreamUrl] = useState<string>('https://vdo.ninja/?scene=0&room=CELULARESESTUDIOPHS&sas&autoplay&mute'); // Added &autoplay&mute for best autoplay reliability
-  const [isLiveStreamActive, setIsLiveStreamActive] = useState(false);
+  const [liveStreamUrl, setLiveStreamUrl] = useState<string>('https://vdo.ninja/?scene=0&room=CELULARESESTUDIOPHS&sas');
 
 
   const renderPage = () => {
     switch (currentPage) {
       case 'home':
-        return <HomePage currentUser={currentUser} openProfilePage={() => setCurrentPage('profile')} setIsQuizActive={setIsQuizActive} liveQuizQuestions={liveQuizQuestions} activeLiveQuestion={activeLiveQuestion} isLiveStreamActive={isLiveStreamActive} liveStreamUrl={liveStreamUrl} />;
+        return <HomePage currentUser={currentUser} openProfilePage={() => setCurrentPage('profile')} setIsQuizActive={setIsQuizActive} liveQuizQuestions={liveQuizQuestions} activeLiveQuestion={activeLiveQuestion} liveStreamUrl={liveStreamUrl} />;
       case 'shop':
         return <ShopPage />;
       case 'videos':
         return <VideosPage />;
       case 'profile':
-        return <ProfilePage currentUser={currentUser} setCurrentUser={setCurrentUser} setLiveQuizQuestions={setLiveQuizQuestions} setActiveLiveQuestion={setActiveLiveQuestion} liveStreamUrl={liveStreamUrl} setLiveStreamUrl={setLiveStreamUrl} isLiveStreamActive={isLiveStreamActive} setIsLiveStreamActive={setIsLiveStreamActive} />;
+        return <ProfilePage currentUser={currentUser} setCurrentUser={setCurrentUser} setLiveQuizQuestions={setLiveQuizQuestions} setActiveLiveQuestion={setActiveLiveQuestion} liveStreamUrl={liveStreamUrl} setLiveStreamUrl={setLiveStreamUrl} />;
       default:
-        return <HomePage currentUser={currentUser} openProfilePage={() => setCurrentPage('profile')} setIsQuizActive={setIsQuizActive} liveQuizQuestions={liveQuizQuestions} activeLiveQuestion={activeLiveQuestion} isLiveStreamActive={isLiveStreamActive} liveStreamUrl={liveStreamUrl} />;
+        return <HomePage currentUser={currentUser} openProfilePage={() => setCurrentPage('profile')} setIsQuizActive={setIsQuizActive} liveQuizQuestions={liveQuizQuestions} activeLiveQuestion={activeLiveQuestion} liveStreamUrl={liveStreamUrl} />;
     }
   };
 
@@ -48,16 +47,12 @@ const App: React.FC = () => {
     ] as const;
 
     if (currentUser?.role === 'admin') {
-      // FIX: Add `as const` to ensure literal types for IDs, matching the `Page` type.
       return [
         { id: 'home', label: 'Início', icon: Home },
         { id: 'videos', label: 'Vídeos', icon: Clapperboard },
         { id: 'profile', label: 'Admin', icon: Shield },
       ] as const;
     }
-    
-    // In the future, merchants could have a different set of items
-    // if (currentUser?.role === 'merchant') { ... }
 
     return baseItems;
   }, [currentUser]);

@@ -17,8 +17,6 @@ interface ProfilePageProps {
   setActiveLiveQuestion: (question: QuizQuestion | null) => void;
   liveStreamUrl: string;
   setLiveStreamUrl: (id: string) => void;
-  isLiveStreamActive: boolean;
-  setIsLiveStreamActive: (isActive: boolean) => void;
 }
 
 interface ProfileViewProps extends ProfilePageProps {

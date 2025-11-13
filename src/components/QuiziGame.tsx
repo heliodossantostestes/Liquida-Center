@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { QuizQuestion, UserProfile } from '../types';
-import { PlayCircle, Clock, CheckCircle, XCircle, Users, Heart, Send, Loader } from 'lucide-react';
+import { Clock, CheckCircle, XCircle, Users, Heart, Send, Loader } from 'lucide-react';
 import QuizChat from './QuizChat';
 
 interface QuiziGameProps {
@@ -11,103 +11,103 @@ interface QuiziGameProps {
     setIsQuizActive: (isActive: boolean) => void;
     liveStreamUrl: string;
 }
+
 interface ChatMessage {
     user: string;
     message: string;
 }
+
 interface AnimatedHeart {
     id: number;
     x: number;
     y: number;
     size: number;
 }
-const initialMockMessages: ChatMessage[] = [
-    { user: 'AnaGamer', message: 'Ebaaa, começou!' },
-    { user: 'Carlos_Vendas', message: 'Boa sorte a todos!' },
-    { user: 'MariCliente', message: 'Essa eu sei!' },
-    { user: 'LojaDoZe', message: 'Vamos ver quem ganha hoje hehe' },
-    { user: 'Julia_M', message: 'Acho que é a primeira opção' },
-    { user: 'Rodrigo', message: 'Não, certeza que é a segunda' },
-    { user: 'LojaDaMaria', message: 'Que legal essa live! Adorei a ideia.' },
-    { user: 'Pedro_Dev', message: 'Qual a tecnologia por trás disso?' },
-    { user: 'FastFood_DaCidade', message: 'Aproveitem a live e peçam um lanche com 10% de desconto!' },
-];
 
+interface LiveStats {
+    viewers: number;
+    likes: number;
+}
 
 const QuiziGame: React.FC<QuiziGameProps> = ({ activeQuestion, totalQuestions, currentUser, onLoginRequest, setIsQuizActive, liveStreamUrl }) => {
-    const [isFullScreen, setIsFullScreen] = useState(false);
     const [timeLeft, setTimeLeft] = useState(15);
     const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
     const [showResults, setShowResults] = useState(false);
     const [answerPercentages, setAnswerPercentages] = useState<[number, number] | null>(null);
-    const [correctAnswers, setCorrectAnswers] = useState(0);
     const [questionsAnswered, setQuestionsAnswered] = useState(0);
-    const [isGameOver, setIsGameOver] = useState(false);
-    const [chatMessages, setChatMessages] = useState<ChatMessage[]>(initialMockMessages);
+    const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
     const [newMessage, setNewMessage] = useState('');
     const [animatedHearts, setAnimatedHearts] = useState<AnimatedHeart[]>([]);
     const [isVideoLoading, setIsVideoLoading] = useState(true);
-    const [isVideoPlaying, setIsVideoPlaying] = useState(false);
-    const [effectiveUrl, setEffectiveUrl] = useState('');
-    const [likeCount, setLikeCount] = useState(2600000);
     const [isEligibleForPrize, setIsEligibleForPrize] = useState(true);
-    const prevQuestionId = useRef<string | null>(null);
+    const [liveStats, setLiveStats] = useState<LiveStats>({ viewers: 0, likes: 0 });
 
+    const prevQuestionId = useRef<string | null>(null);
     const timerRef = useRef<number | undefined>(undefined);
-    
+    const statsIntervalRef = useRef<number | undefined>(undefined);
+
     const processedUrl = useMemo(() => {
         if (!liveStreamUrl) return '';
-
         try {
-            if (liveStreamUrl.includes("youtube.com/watch?v=")) {
-                const videoId = liveStreamUrl.split('v=')[1].split('&')[0];
-                return `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&playsinline=1&controls=0&showinfo=0&modestbranding=1`;
-            }
-            if (liveStreamUrl.includes("youtu.be/")) {
-                const videoId = liveStreamUrl.split('youtu.be/')[1].split('?')[0];
-                return `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&playsinline=1&controls=0&showinfo=0&modestbranding=1`;
-            }
-            if (liveStreamUrl.includes("vdo.ninja")) {
-                const url = new URL(liveStreamUrl);
-                url.searchParams.delete('mute'); 
-                if (!url.searchParams.has('autoplay')) {
-                    url.searchParams.set('autoplay', 'true');
-                }
-                if (!url.searchParams.has('cleanish')) {
-                    url.searchParams.set('cleanish', 'true');
-                }
-                return url.toString();
-            }
+            const url = new URL(liveStreamUrl);
+            url.searchParams.set('autoplay', 'true');
+            url.searchParams.set('cleanish', 'true');
+            url.searchParams.delete('mute');
+            return url.toString();
         } catch (e) {
-            console.error("Could not process URL:", e);
+            console.error("Invalid Live Stream URL:", e);
             return liveStreamUrl;
         }
-
-        return liveStreamUrl;
     }, [liveStreamUrl]);
-    
-    const displayResults = () => {
-      if (!activeQuestion) return;
-      setShowResults(true);
 
-      // Generate mock percentages for demonstration
-      const correctVotePercentage = Math.floor(Math.random() * 41) + 50; // 50% to 90%
-      const incorrectVotePercentage = 100 - correctVotePercentage;
-      
-      const percentages: [number, number] = [0, 0];
-      percentages[activeQuestion.correctAnswerIndex] = correctVotePercentage;
-      percentages[1 - activeQuestion.correctAnswerIndex] = incorrectVotePercentage;
-      
-      setAnswerPercentages(percentages);
+    const updateLiveStats = async (action: 'join' | 'leave' | 'like' | 'get') => {
+        try {
+            if (action === 'get') {
+                const res = await fetch('/api/live-stats');
+                if (res.ok) {
+                    const data = await res.json();
+                    setLiveStats(data);
+                }
+            } else {
+                 const res = await fetch('/api/live-stats', {
+                    method: 'POST',
+                    body: JSON.stringify({ action }),
+                    keepalive: action === 'leave', // Important for reliability on page close
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    setLiveStats(data);
+                }
+            }
+        } catch (err) {
+            console.error(`Failed to ${action} live stats`, err);
+        }
     };
 
     useEffect(() => {
-        if (isFullScreen) {
-            setIsVideoPlaying(true);
-            setIsVideoLoading(true);
-            setEffectiveUrl(processedUrl);
-        }
-    }, [isFullScreen, processedUrl]);
+        // User joins the live stream
+        updateLiveStats('join');
+        
+        // Poll for stats updates
+        statsIntervalRef.current = window.setInterval(() => updateLiveStats('get'), 3000);
+
+        // User leaves the live stream
+        return () => {
+            clearInterval(statsIntervalRef.current);
+            updateLiveStats('leave');
+        };
+    }, []);
+
+    const displayResults = () => {
+        if (!activeQuestion) return;
+        setShowResults(true);
+        const correctVotePercentage = Math.floor(Math.random() * 41) + 50;
+        const incorrectVotePercentage = 100 - correctVotePercentage;
+        const percentages: [number, number] = [0, 0];
+        percentages[activeQuestion.correctAnswerIndex] = correctVotePercentage;
+        percentages[1 - activeQuestion.correctAnswerIndex] = incorrectVotePercentage;
+        setAnswerPercentages(percentages);
+    };
 
     useEffect(() => {
         if (activeQuestion && activeQuestion.id !== prevQuestionId.current) {
@@ -125,9 +125,7 @@ const QuiziGame: React.FC<QuiziGameProps> = ({ activeQuestion, totalQuestions, c
             timerRef.current = window.setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
         } else if (activeQuestion && !showResults && timeLeft === 0) {
             window.clearTimeout(timerRef.current);
-            if (selectedAnswer === null) {
-                setIsEligibleForPrize(false);
-            }
+            if (selectedAnswer === null) setIsEligibleForPrize(false);
             displayResults();
         }
         return () => window.clearTimeout(timerRef.current);
@@ -135,36 +133,15 @@ const QuiziGame: React.FC<QuiziGameProps> = ({ activeQuestion, totalQuestions, c
     
     const handleAnswerClick = (index: number) => {
         if (selectedAnswer !== null || !activeQuestion || timeLeft === 0) return;
-        
         setSelectedAnswer(index);
-
         if (index !== activeQuestion.correctAnswerIndex) {
             setIsEligibleForPrize(false);
-        } else {
-            setCorrectAnswers(prev => prev + 1);
         }
     };
     
-    const handleEnterGame = () => {
-        if (currentUser) {
-            setIsFullScreen(true);
-            setIsQuizActive(true);
-        } else {
-            alert("Você precisa fazer login para participar do Quizi!");
-            onLoginRequest();
-        }
-    };
-
     const handleExitGame = (e: React.MouseEvent) => {
         e.stopPropagation();
-        setIsFullScreen(false);
         setIsQuizActive(false);
-        setIsGameOver(false);
-        setCorrectAnswers(0);
-        setQuestionsAnswered(0);
-        setIsVideoPlaying(false);
-        setEffectiveUrl('');
-        setIsEligibleForPrize(true);
     };
     
     const handleSendMessage = (e: React.FormEvent) => {
@@ -172,13 +149,14 @@ const QuiziGame: React.FC<QuiziGameProps> = ({ activeQuestion, totalQuestions, c
         if (newMessage.trim() && currentUser) {
             setChatMessages(prev => [...prev, { user: currentUser.name, message: newMessage }]);
             setNewMessage('');
+        } else if (!currentUser) {
+            onLoginRequest();
         }
     };
 
     const handleLikeClick = (e: React.MouseEvent<HTMLButtonElement>) => {
         e.stopPropagation();
-        setLikeCount(prev => prev + 1);
-
+        updateLiveStats('like'); // Update likes on the server
         const rect = e.currentTarget.getBoundingClientRect();
         const newHeart: AnimatedHeart = {
             id: Date.now() + Math.random(),
@@ -187,51 +165,30 @@ const QuiziGame: React.FC<QuiziGameProps> = ({ activeQuestion, totalQuestions, c
             size: Math.random() * 20 + 20,
         };
         setAnimatedHearts(prev => [...prev, newHeart]);
-        setTimeout(() => {
-            setAnimatedHearts(prev => prev.filter(h => h.id !== newHeart.id));
-        }, 2000);
+        setTimeout(() => setAnimatedHearts(prev => prev.filter(h => h.id !== newHeart.id)), 2000);
     };
 
-    const formatLikes = (num: number) => {
-        return num.toLocaleString('pt-BR');
+    const formatNumber = (num: number) => {
+      if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`.replace('.0','');
+      if (num >= 1000) return `${(num / 1000).toFixed(1)}K`.replace('.0','');
+      return num.toLocaleString('pt-BR');
     };
 
     const getButtonClass = (index: number) => {
-        if (showResults && activeQuestion) { // After timer ends and results are shown
+        if (showResults && activeQuestion) {
             const isCorrect = index === activeQuestion.correctAnswerIndex;
-            const isSelected = index === selectedAnswer;
             if (isCorrect) return "bg-green-600";
-            if (isSelected && !isCorrect) return "bg-red-600";
+            if (index === selectedAnswer && !isCorrect) return "bg-red-600";
             return "bg-gray-700 opacity-60";
         }
-        
-        if (selectedAnswer === index) { // Highlight the selected answer before results
-            return "bg-brand-purple ring-2 ring-white";
-        }
-        
+        if (selectedAnswer === index) return "bg-brand-purple ring-2 ring-white";
         return "bg-gray-700 hover:bg-brand-purple-dark";
     };
 
-    if (!isFullScreen) {
-        return (
-            <div 
-                className="bg-gray-800 rounded-xl p-6 text-center shadow-2xl shadow-brand-purple/20 border-2 border-brand-purple/30 cursor-pointer transition-transform hover:scale-105"
-            >
-                <h2 className="text-3xl font-bold mb-2 text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-yellow-400 animate-pulse">QUIZI AO VIVO AGORA!</h2>
-                <p className="text-gray-400 mb-6">Clique aqui para participar e concorrer a prêmios!</p>
-                <button 
-                    onClick={handleEnterGame}
-                    className="bg-gradient-to-r from-brand-purple to-neon-blue text-white font-bold py-3 px-8 rounded-full shadow-lg hover:shadow-xl transform hover:scale-105 transition">
-                    Participar do Quiz
-                </button>
-            </div>
-        );
-    }
-    
     return (
         <div className="fixed inset-0 bg-black z-50 flex flex-col items-center justify-center text-white">
             
-            {isVideoPlaying && isVideoLoading && (
+            {isVideoLoading && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black z-20">
                     <Loader className="animate-spin text-brand-purple-light h-16 w-16" />
                     <p className="mt-4 text-lg">Carregando a live...</p>
@@ -239,18 +196,14 @@ const QuiziGame: React.FC<QuiziGameProps> = ({ activeQuestion, totalQuestions, c
             )}
 
             <iframe
-                className={`absolute top-0 left-0 w-full h-full object-cover transition-opacity duration-500 ${isVideoPlaying && !isVideoLoading ? 'opacity-100' : 'opacity-0'}`}
-                src={effectiveUrl}
+                className={`absolute top-0 left-0 w-full h-full object-cover transition-opacity duration-500 ${!isVideoLoading ? 'opacity-100' : 'opacity-0'}`}
+                src={processedUrl}
                 title="Live Stream"
                 frameBorder="0"
                 sandbox="allow-scripts allow-same-origin allow-presentation allow-autoplay"
                 allow="autoplay; camera; microphone; fullscreen; picture-in-picture; display-capture"
                 allowFullScreen
-                onLoad={() => {
-                    if (effectiveUrl) {
-                        setIsVideoLoading(false);
-                    }
-                }}
+                onLoad={() => setIsVideoLoading(false)}
             ></iframe>
             
             <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/50 pointer-events-none z-10"></div>
@@ -271,11 +224,11 @@ const QuiziGame: React.FC<QuiziGameProps> = ({ activeQuestion, totalQuestions, c
                     <div className="flex items-center space-x-4">
                         <div className="flex items-center space-x-1 bg-black/30 backdrop-blur-sm p-2 rounded-full">
                             <Users className="h-5 w-5 text-gray-300" />
-                            <span className="font-bold text-white text-sm">81.6K</span>
+                            <span className="font-bold text-white text-sm">{formatNumber(liveStats.viewers)}</span>
                         </div>
                         <div className="flex items-center space-x-1 bg-black/30 backdrop-blur-sm p-2 rounded-full">
                             <Heart className="h-5 w-5 text-red-500" />
-                            <span className="font-bold text-white text-sm">{formatLikes(likeCount)}</span>
+                            <span className="font-bold text-white text-sm">{liveStats.likes.toLocaleString('pt-BR')}</span>
                         </div>
                         <button onClick={handleExitGame} className="bg-black/30 backdrop-blur-sm text-white font-semibold py-2 px-4 rounded-full hover:bg-red-600 transition-colors">
                             Sair
@@ -285,11 +238,7 @@ const QuiziGame: React.FC<QuiziGameProps> = ({ activeQuestion, totalQuestions, c
             </header>
 
             {animatedHearts.map(heart => (
-                <div
-                    key={heart.id}
-                    className="absolute text-red-500 animate-float-up pointer-events-none z-50"
-                    style={{ left: heart.x, top: heart.y, fontSize: heart.size }}
-                >
+                <div key={heart.id} className="absolute text-red-500 animate-float-up pointer-events-none z-50" style={{ left: heart.x, top: heart.y, fontSize: heart.size }}>
                     <Heart fill="currentColor" />
                 </div>
             ))}
@@ -306,8 +255,9 @@ const QuiziGame: React.FC<QuiziGameProps> = ({ activeQuestion, totalQuestions, c
                         type="text"
                         value={newMessage}
                         onChange={(e) => setNewMessage(e.target.value)}
-                        placeholder="Digite sua mensagem..."
-                        className="w-full bg-black/50 backdrop-blur-sm border border-gray-600 rounded-full py-3 px-5 focus:ring-2 focus:ring-brand-purple-light outline-none"
+                        placeholder={currentUser ? "Digite sua mensagem..." : "Faça login para conversar"}
+                        disabled={!currentUser}
+                        className="w-full bg-black/50 backdrop-blur-sm border border-gray-600 rounded-full py-3 px-5 focus:ring-2 focus:ring-brand-purple-light outline-none disabled:opacity-50"
                     />
                     <button type="submit" className="bg-brand-purple p-3 rounded-full text-white hover:bg-brand-purple-dark transition-colors flex-shrink-0">
                         <Send size={20} />
@@ -315,15 +265,13 @@ const QuiziGame: React.FC<QuiziGameProps> = ({ activeQuestion, totalQuestions, c
                 </form>
             </div>
             
-            {isVideoPlaying && (
-                <button
-                    onClick={handleLikeClick}
-                    className="absolute bottom-24 right-4 z-30 p-4 bg-black/30 backdrop-blur-sm rounded-full text-red-500 hover:bg-black/50 transition-colors transform active:scale-90"
-                    aria-label="Curtir a live"
-                >
-                    <Heart size={32} fill="currentColor" />
-                </button>
-            )}
+            <button
+                onClick={handleLikeClick}
+                className="absolute bottom-24 right-4 z-30 p-4 bg-black/30 backdrop-blur-sm rounded-full text-red-500 hover:bg-black/50 transition-colors transform active:scale-90"
+                aria-label="Curtir a live"
+            >
+                <Heart size={32} fill="currentColor" />
+            </button>
 
             {activeQuestion && (
                  <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-end p-4 z-40" onClick={e => e.stopPropagation()}>
@@ -353,9 +301,7 @@ const QuiziGame: React.FC<QuiziGameProps> = ({ activeQuestion, totalQuestions, c
                                 >
                                     <div className="flex items-center">
                                       <span>{option}</span>
-                                      {showResults && (
-                                        index === activeQuestion.correctAnswerIndex ? <CheckCircle className="ml-3 text-white"/> : (selectedAnswer === index && <XCircle className="ml-3 text-white"/>)
-                                      )}
+                                      {showResults && (index === activeQuestion.correctAnswerIndex ? <CheckCircle className="ml-3 text-white"/> : (selectedAnswer === index && <XCircle className="ml-3 text-white"/>))}
                                     </div>
                                     {showResults && answerPercentages && (
                                         <span className="text-base font-bold text-white/80">{answerPercentages[index]}%</span>

@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { Product } from '../types';
 import { ShoppingCart } from 'lucide-react';

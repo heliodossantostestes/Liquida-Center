@@ -9,8 +9,6 @@ interface QuizManagementPanelProps {
     setActiveQuestion: (question: QuizQuestion | null) => void;
     liveStreamUrl: string;
     setLiveStreamUrl: (id: string) => void;
-    isLiveStreamActive: boolean;
-    setIsLiveStreamActive: (isActive: boolean) => void;
 }
 
 const mockWinners: QuizWinner[] = [
@@ -28,16 +26,59 @@ const initialNewQuestionState: Omit<QuizQuestion, 'id' | 'status'> = {
     difficulty: 'Fácil' as 'Fácil' | 'Intermediário' | 'Difícil'
 };
 
-const QuizManagementPanel: React.FC<QuizManagementPanelProps> = ({ onBack, onSaveQuiz, setActiveQuestion, liveStreamUrl, setLiveStreamUrl, isLiveStreamActive, setIsLiveStreamActive }) => {
+const QuizManagementPanel: React.FC<QuizManagementPanelProps> = ({ onBack, onSaveQuiz, setActiveQuestion, liveStreamUrl, setLiveStreamUrl }) => {
     const [questions, setQuestions] = useState<QuizQuestion[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [newQuestion, setNewQuestion] = useState(initialNewQuestionState);
     const [questionResults, setQuestionResults] = useState<Record<string, { correct: number, incorrect: number }>>({});
+    const [isLiveActive, setIsLiveActive] = useState(false);
+    const [isUpdatingLiveState, setIsUpdatingLiveState] = useState(false);
 
     useEffect(() => {
         onSaveQuiz(questions);
     }, [questions, onSaveQuiz]);
+
+    useEffect(() => {
+        const fetchInitialState = async () => {
+            try {
+                const res = await fetch('/api/quiz-state');
+                if (res.ok) {
+                    const data = await res.json();
+                    setIsLiveActive(data.active);
+                }
+            } catch (err) {
+                console.error("Failed to fetch initial quiz state", err);
+            }
+        };
+        fetchInitialState();
+    }, []);
+
+    const handleToggleLiveStream = async () => {
+        setIsUpdatingLiveState(true);
+        const newState = !isLiveActive;
+        try {
+            const res = await fetch('/api/quiz-state', {
+                method: 'POST',
+                body: JSON.stringify({
+                    active: newState,
+                    title: newState ? 'QUIZI AO VIVO AGORA!' : '',
+                    message: newState ? 'Clique aqui para participar e concorrer a prêmios!' : ''
+                })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setIsLiveActive(data.active);
+            } else {
+                alert('Falha ao atualizar o estado da live.');
+            }
+        } catch (err) {
+            console.error("Failed to toggle live state", err);
+            alert('Erro de conexão ao tentar atualizar o estado da live.');
+        } finally {
+            setIsUpdatingLiveState(false);
+        }
+    };
 
 
     const handleGenerateQuestions = async () => {
@@ -126,21 +167,22 @@ const QuizManagementPanel: React.FC<QuizManagementPanelProps> = ({ onBack, onSav
             <div className="p-4 bg-gray-900/50 rounded-lg space-y-3">
                  <h4 className="text-xl font-bold text-gray-200 flex items-center"><Video className="mr-2 text-brand-purple-light"/> Configuração da Live</h4>
                  <div>
-                    <label className="text-sm font-semibold text-gray-300 block mb-1">URL da Live (Qualquer link do YouTube)</label>
+                    <label className="text-sm font-semibold text-gray-300 block mb-1">URL da Live (VDO.Ninja, YouTube, etc.)</label>
                     <input 
                         type="text" 
-                        placeholder="Cole qualquer link do seu vídeo ou live do YouTube" 
+                        placeholder="Cole o link da sua transmissão" 
                         value={liveStreamUrl}
                         onChange={(e) => setLiveStreamUrl(e.target.value)}
                         className="w-full bg-gray-700 p-2 rounded-md border border-gray-600 focus:ring-brand-purple"
                     />
                  </div>
                  <button 
-                    onClick={() => setIsLiveStreamActive(!isLiveStreamActive)}
-                    className={`w-full flex items-center justify-center px-4 py-2 text-white font-bold rounded-lg transition ${isLiveStreamActive ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}`}
+                    onClick={handleToggleLiveStream}
+                    disabled={isUpdatingLiveState}
+                    className={`w-full flex items-center justify-center px-4 py-2 text-white font-bold rounded-lg transition ${isLiveActive ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'} disabled:bg-gray-500`}
                  >
-                    <Power size={18} className="mr-2"/>
-                    {isLiveStreamActive ? 'Finalizar Live na Vitrine' : 'Iniciar Live na Vitrine'}
+                    {isUpdatingLiveState ? <Loader size={18} className="animate-spin mr-2"/> : <Power size={18} className="mr-2"/>}
+                    {isLiveActive ? 'Finalizar Live na Vitrine' : 'Iniciar Live na Vitrine'}
                  </button>
             </div>
 
