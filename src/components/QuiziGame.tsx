@@ -16,7 +16,7 @@ interface VoteResults { percentages: [number, number]; totalVotes: number; }
 
 const QuiziGame: React.FC<QuiziGameProps> = ({ currentUser, onLoginRequest, onLeaveLiveQuiz, liveStreamUrl }) => {
     const [liveQuestion, setLiveQuestion] = useState<LiveQuestion | null>(null);
-    const [timeLeft, setTimeLeft] = useState(15);
+    const [timeLeft, setTimeLeft] = useState(0);
     const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
     const [showResults, setShowResults] = useState(false);
     const [voteResults, setVoteResults] = useState<VoteResults | null>(null);
@@ -27,7 +27,6 @@ const QuiziGame: React.FC<QuiziGameProps> = ({ currentUser, onLoginRequest, onLe
     const [liveStats, setLiveStats] = useState<LiveStats>({ viewers: 0, likes: 0 });
 
     const prevQuestionId = useRef<string | null>(null);
-    const timerRef = useRef<number | undefined>(undefined);
     const pollIntervalRef = useRef<number | undefined>(undefined);
 
     const processedUrl = useMemo(() => {
@@ -68,19 +67,26 @@ const QuiziGame: React.FC<QuiziGameProps> = ({ currentUser, onLoginRequest, onLe
             setShowResults(false);
             setSelectedAnswer(null);
             setVoteResults(null);
-            setTimeLeft(15);
         }
     }, [liveQuestion]);
 
     useEffect(() => {
-        if (liveQuestion && !showResults && timeLeft > 0) {
-            timerRef.current = window.setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
-        } else if (liveQuestion && !showResults && timeLeft === 0) {
-            window.clearTimeout(timerRef.current);
-            setShowResults(true);
+        if (liveQuestion?.status === 'running' && liveQuestion.startedAt) {
+            const intervalId = setInterval(() => {
+                const startTime = new Date(liveQuestion.startedAt!).getTime();
+                const elapsedTime = (Date.now() - startTime) / 1000;
+                const remaining = Math.max(0, 15 - elapsedTime);
+                
+                setTimeLeft(Math.round(remaining));
+
+                if (remaining === 0 && !showResults) {
+                    setShowResults(true);
+                }
+            }, 500);
+
+            return () => clearInterval(intervalId);
         }
-        return () => window.clearTimeout(timerRef.current);
-    }, [liveQuestion, showResults, timeLeft]);
+    }, [liveQuestion, showResults]);
 
     useEffect(() => {
         let resultPollInterval: number | undefined;

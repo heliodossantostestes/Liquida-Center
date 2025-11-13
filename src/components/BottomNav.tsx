@@ -1,6 +1,5 @@
 
 
-
 import React from 'react';
 import { Page } from '../types';
 import { LucideProps } from 'lucide-react';
