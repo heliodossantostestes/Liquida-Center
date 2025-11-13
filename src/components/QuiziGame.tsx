@@ -27,7 +27,8 @@ const QuiziGame: React.FC<QuiziGameProps> = ({ currentUser, onLoginRequest, onLe
     const [liveStats, setLiveStats] = useState<LiveStats>({ viewers: 0, likes: 0 });
 
     const prevQuestionId = useRef<string | null>(null);
-    const pollIntervalRef = useRef<number | undefined>(undefined);
+    // FIX: Using ReturnType<typeof setInterval> ensures the ref type is compatible with both browser (number) and Node (Timeout) environments.
+    const pollIntervalRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
     const processedUrl = useMemo(() => {
         if (!liveStreamUrl) return '';
@@ -71,8 +72,10 @@ const QuiziGame: React.FC<QuiziGameProps> = ({ currentUser, onLoginRequest, onLe
     }, [liveQuestion]);
 
     useEffect(() => {
+        // FIX: Using ReturnType<typeof setInterval> ensures the variable type is compatible with both browser (number) and Node (Timeout) environments.
+        let timerInterval: ReturnType<typeof setInterval> | undefined;
         if (liveQuestion?.status === 'running' && liveQuestion.startedAt) {
-            const intervalId = setInterval(() => {
+            timerInterval = setInterval(() => {
                 const startTime = new Date(liveQuestion.startedAt!).getTime();
                 const elapsedTime = (Date.now() - startTime) / 1000;
                 const remaining = Math.max(0, 15 - elapsedTime);
@@ -83,13 +86,13 @@ const QuiziGame: React.FC<QuiziGameProps> = ({ currentUser, onLoginRequest, onLe
                     setShowResults(true);
                 }
             }, 500);
-
-            return () => clearInterval(intervalId);
         }
+        return () => clearInterval(timerInterval);
     }, [liveQuestion, showResults]);
 
     useEffect(() => {
-        let resultPollInterval: number | undefined;
+        // FIX: Using ReturnType<typeof setInterval> ensures the variable type is compatible with both browser (number) and Node (Timeout) environments.
+        let resultPollInterval: ReturnType<typeof setInterval> | undefined;
         const fetchResults = async () => {
             if (!liveQuestion?.id) return;
             try {
@@ -117,7 +120,10 @@ const QuiziGame: React.FC<QuiziGameProps> = ({ currentUser, onLoginRequest, onLe
 
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newMessage.trim() || !currentUser) return;
+        if (!newMessage.trim() || !currentUser) {
+          if(!currentUser) onLoginRequest();
+          return;
+        }
         try {
             const res = await fetch('/api/live-chat', {
                 method: 'POST',

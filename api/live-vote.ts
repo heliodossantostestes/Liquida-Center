@@ -28,11 +28,13 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
         ];
         
         // Ajuste para garantir que a soma seja 100% em caso de arredondamento
-        if (percentages[0] + percentages[1] !== 100) {
+        const sum = percentages[0] + percentages[1];
+        if (sum !== 100 && sum > 0) {
+            const diff = 100 - sum;
             if (percentages[0] > percentages[1]) {
-                percentages[0] = 100 - percentages[1];
+                percentages[0] += diff;
             } else {
-                percentages[1] = 100 - percentages[0];
+                percentages[1] += diff;
             }
         }
     }

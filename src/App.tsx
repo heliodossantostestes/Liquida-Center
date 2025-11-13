@@ -30,6 +30,7 @@ const App: React.FC = () => {
 
   const handleLeaveLiveQuiz = async () => {
     try {
+      // Use keepalive to ensure the request is sent even if the page is closing
       await fetch('/api/live-stats', { method: 'POST', body: JSON.stringify({ action: 'leave' }), keepalive: true });
     } catch (err) {
       console.error("Failed to leave live stats:", err);

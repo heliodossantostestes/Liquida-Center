@@ -11,7 +11,6 @@ interface NavItem {
 }
 
 interface BottomNavProps {
-  // Fix: Changed items to be a readonly array to support `as const` inference from parent components.
   items: readonly NavItem[];
   currentPage: Page;
   setCurrentPage: (page: Page) => void;

@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import ProductCard from '../components/ProductCard';
 import { Product } from '../types';

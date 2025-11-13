@@ -25,7 +25,7 @@ const QuizManagementPanel: React.FC<QuizManagementPanelProps> = ({ onBack, liveS
     const [isLiveActive, setIsLiveActive] = useState(false);
     const [isUpdatingLiveState, setIsUpdatingLiveState] = useState(false);
     const [activeLiveQuestion, setActiveLiveQuestion] = useState<LiveQuestion | null>(null);
-    const [liveVoteResults, setLiveVoteResults] = useState<VoteResults | null>(null);
+    const [liveVoteResults, setLiveVoteResults] = useState<Record<string, VoteResults | null>>({});
     const [timeLeftForActiveQuestion, setTimeLeftForActiveQuestion] = useState<number | null>(null);
 
 
@@ -44,9 +44,10 @@ const QuizManagementPanel: React.FC<QuizManagementPanelProps> = ({ onBack, liveS
 
                     if (qData.active && qData.id) {
                         const voteRes = await fetch(`/api/live-vote?questionId=${qData.id}`);
-                        if (voteRes.ok) setLiveVoteResults(await voteRes.json());
-                    } else {
-                        setLiveVoteResults(null);
+                        if (voteRes.ok) {
+                            const voteData = await voteRes.json();
+                            setLiveVoteResults(prev => ({ ...prev, [qData.id!]: voteData }));
+                        }
                     }
                 }
             } catch (err) { console.error("Admin polling failed", err); }
@@ -92,15 +93,10 @@ const QuizManagementPanel: React.FC<QuizManagementPanelProps> = ({ onBack, liveS
             return;
         }
         const questionToBroadcast: LiveQuestion = { 
-            active: true, 
-            id: question.id, 
-            question: question.question, 
-            optionA: question.options[0], 
-            optionB: question.options[1], 
-            correctAnswerIndex: question.correctAnswerIndex, 
-            difficulty: question.difficulty, 
-            status: 'running', 
-            startedAt: new Date().toISOString() 
+            active: true, id: question.id, question: question.question, 
+            optionA: question.options[0], optionB: question.options[1], 
+            correctAnswerIndex: question.correctAnswerIndex, difficulty: question.difficulty, 
+            status: 'running', startedAt: new Date().toISOString() 
         };
         try {
             await fetch('/api/live-question', { method: 'POST', body: JSON.stringify(questionToBroadcast) });
@@ -161,39 +157,44 @@ const QuizManagementPanel: React.FC<QuizManagementPanelProps> = ({ onBack, liveS
                 <div className="space-y-4">
                     <h4 className="text-xl font-bold text-gray-200">Perguntas da Live ({questions.length})</h4>
                     <div className="bg-gray-900/50 p-4 rounded-lg h-96 overflow-y-auto space-y-3">
-                        {questions.map((q, index) => (
-                            <div key={q.id} className={`p-3 rounded-md border-l-4 ${activeLiveQuestion?.id === q.id ? 'bg-brand-purple/20 border-brand-purple-light' : 'bg-gray-800 border-brand-purple'}`}>
-                                <div className="flex justify-between items-start">
-                                    <p className="text-sm font-semibold text-gray-200 flex-grow pr-2">{index + 1}. {q.question}</p>
-                                    <button onClick={() => handleDeleteQuestion(q.id)} className="ml-2 text-red-500 hover:text-red-400"><Trash2 size={16}/></button>
-                                </div>
-                                <div className="text-xs mt-2 space-y-1">
-                                    <p className={q.correctAnswerIndex === 0 ? 'text-green-400 font-bold' : 'text-gray-400'}>A) {q.options[0]}</p>
-                                    <p className={q.correctAnswerIndex === 1 ? 'text-green-400 font-bold' : 'text-gray-400'}>B) {q.options[1]}</p>
-                                </div>
-                                <div className="mt-3 pt-2 border-t border-gray-700/50">
-                                    {activeLiveQuestion?.id === q.id ? (
-                                        <div className="flex items-center justify-between">
-                                            <div>
-                                                {timeLeftForActiveQuestion !== null && timeLeftForActiveQuestion > 0 ? (
-                                                    <div className="text-sm font-bold animate-pulse text-yellow-400 flex items-center"><Clock size={14} className="mr-2"/> AO VIVO: {timeLeftForActiveQuestion}s</div>
-                                                ) : (
-                                                    <div className="text-xs font-bold">
-                                                        <p>Resultados Finais:</p>
-                                                        <p>A: {liveVoteResults?.percentages[0] ?? 0}% | B: {liveVoteResults?.percentages[1] ?? 0}%</p>
-                                                    </div>
-                                                )}
+                        {questions.map((q, index) => {
+                            const isQuestionLive = activeLiveQuestion?.id === q.id;
+                            const results = liveVoteResults[q.id];
+
+                            return (
+                                <div key={q.id} className={`p-3 rounded-md border-l-4 ${isQuestionLive ? 'bg-brand-purple/20 border-brand-purple-light' : 'bg-gray-800 border-brand-purple'}`}>
+                                    <div className="flex justify-between items-start">
+                                        <p className="text-sm font-semibold text-gray-200 flex-grow pr-2">{index + 1}. {q.question}</p>
+                                        <button onClick={() => handleDeleteQuestion(q.id)} className="ml-2 text-red-500 hover:text-red-400"><Trash2 size={16}/></button>
+                                    </div>
+                                    <div className="text-xs mt-2 space-y-1">
+                                        <p className={`${q.correctAnswerIndex === 0 ? 'text-green-400 font-bold' : 'text-gray-400'} ${isQuestionLive && timeLeftForActiveQuestion === 0 && q.correctAnswerIndex === 0 ? 'bg-green-500/20 px-1 rounded' : ''}`}>A) {q.options[0]}</p>
+                                        <p className={`${q.correctAnswerIndex === 1 ? 'text-green-400 font-bold' : 'text-gray-400'} ${isQuestionLive && timeLeftForActiveQuestion === 0 && q.correctAnswerIndex === 1 ? 'bg-green-500/20 px-1 rounded' : ''}`}>B) {q.options[1]}</p>
+                                    </div>
+                                    <div className="mt-3 pt-2 border-t border-gray-700/50">
+                                        {isQuestionLive ? (
+                                            <div className="flex items-center justify-between">
+                                                <div>
+                                                    {timeLeftForActiveQuestion !== null && timeLeftForActiveQuestion > 0 ? (
+                                                        <div className="text-sm font-bold animate-pulse text-yellow-400 flex items-center"><Clock size={14} className="mr-2"/> AO VIVO: {timeLeftForActiveQuestion}s</div>
+                                                    ) : (
+                                                        <div className="text-xs font-bold">
+                                                            <p className={q.correctAnswerIndex === 0 ? 'text-green-400' : 'text-gray-400'}>A: {results?.percentages[0] ?? 0}%</p>
+                                                            <p className={q.correctAnswerIndex === 1 ? 'text-green-400' : 'text-gray-400'}>B: {results?.percentages[1] ?? 0}%</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <button onClick={handleClearLiveQuestion} className="flex items-center text-sm px-3 py-2 bg-red-600 hover:bg-red-700 rounded transition-colors font-semibold"><Square size={16} className="mr-2"/> Limpar da Live</button>
                                             </div>
-                                            <button onClick={handleClearLiveQuestion} className="flex items-center text-sm px-3 py-2 bg-red-600 hover:bg-red-700 rounded transition-colors font-semibold"><Square size={16} className="mr-2"/> Limpar da Live</button>
-                                        </div>
-                                    ) : (
-                                        <button onClick={() => handleBroadcastQuestion(q)} className="w-full flex items-center justify-center text-sm px-3 py-2 bg-green-600 hover:bg-green-700 rounded transition-colors font-semibold disabled:bg-gray-500" disabled={!!activeLiveQuestion?.active}>
-                                            <Play size={16} className="mr-2"/> Iniciar na Live
-                                        </button>
-                                    )}
+                                        ) : (
+                                            <button onClick={() => handleBroadcastQuestion(q)} className="w-full flex items-center justify-center text-sm px-3 py-2 bg-green-600 hover:bg-green-700 rounded transition-colors font-semibold disabled:bg-gray-500" disabled={!!activeLiveQuestion?.active}>
+                                                <Play size={16} className="mr-2"/> Iniciar na Live
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
             </div>
