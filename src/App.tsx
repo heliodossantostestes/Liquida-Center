@@ -17,24 +17,61 @@ const initialMockQuestions: QuizQuestion[] = [
 const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<Page>('home');
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
-  const [isQuizActive, setIsQuizActive] = useState(false);
+  const [isInLiveQuiz, setIsInLiveQuiz] = useState(false);
   const [liveQuizQuestions, setLiveQuizQuestions] = useState<QuizQuestion[]>(initialMockQuestions);
   const [activeLiveQuestion, setActiveLiveQuestion] = useState<QuizQuestion | null>(null);
   const [liveStreamUrl, setLiveStreamUrl] = useState<string>('https://vdo.ninja/?scene=0&room=CELULARESESTUDIOPHS&sas');
 
+  const handleJoinLiveQuiz = async () => {
+    if (!currentUser) {
+      setCurrentPage('profile');
+      return;
+    }
+    try {
+      await fetch('/api/live-stats', { method: 'POST', body: JSON.stringify({ action: 'join' }) });
+      setIsInLiveQuiz(true);
+      setCurrentPage('videos');
+    } catch (err) {
+      console.error("Failed to join live stats:", err);
+      // Still join the quiz visually even if stats fail
+      setIsInLiveQuiz(true);
+      setCurrentPage('videos');
+    }
+  };
+
+  const handleLeaveLiveQuiz = async () => {
+    try {
+      // Use keepalive to ensure the request is sent even if the page is closing
+      await fetch('/api/live-stats', { method: 'POST', body: JSON.stringify({ action: 'leave' }), keepalive: true });
+    } catch (err) {
+      console.error("Failed to leave live stats:", err);
+    } finally {
+      setIsInLiveQuiz(false);
+    }
+  };
 
   const renderPage = () => {
     switch (currentPage) {
       case 'home':
-        return <HomePage currentUser={currentUser} openProfilePage={() => setCurrentPage('profile')} setIsQuizActive={setIsQuizActive} liveQuizQuestions={liveQuizQuestions} activeLiveQuestion={activeLiveQuestion} liveStreamUrl={liveStreamUrl} />;
+        return <HomePage onJoinLiveQuiz={handleJoinLiveQuiz} />;
       case 'shop':
         return <ShopPage />;
       case 'videos':
-        return <VideosPage />;
+        return (
+          <VideosPage 
+            isInLiveQuiz={isInLiveQuiz} 
+            onLeaveLiveQuiz={handleLeaveLiveQuiz}
+            activeQuestion={activeLiveQuestion}
+            totalQuestions={liveQuizQuestions.length}
+            currentUser={currentUser}
+            onLoginRequest={() => setCurrentPage('profile')}
+            liveStreamUrl={liveStreamUrl}
+          />
+        );
       case 'profile':
         return <ProfilePage currentUser={currentUser} setCurrentUser={setCurrentUser} setLiveQuizQuestions={setLiveQuizQuestions} setActiveLiveQuestion={setActiveLiveQuestion} liveStreamUrl={liveStreamUrl} setLiveStreamUrl={setLiveStreamUrl} />;
       default:
-        return <HomePage currentUser={currentUser} openProfilePage={() => setCurrentPage('profile')} setIsQuizActive={setIsQuizActive} liveQuizQuestions={liveQuizQuestions} activeLiveQuestion={activeLiveQuestion} liveStreamUrl={liveStreamUrl} />;
+        return <HomePage onJoinLiveQuiz={handleJoinLiveQuiz} />;
     }
   };
 
@@ -57,6 +94,24 @@ const App: React.FC = () => {
     return baseItems;
   }, [currentUser]);
 
+  if (isInLiveQuiz) {
+    // Render only the quiz game in a full-screen-like mode
+     return (
+        <VideosPage 
+            isInLiveQuiz={isInLiveQuiz} 
+            onLeaveLiveQuiz={handleLeaveLiveQuiz}
+            activeQuestion={activeLiveQuestion}
+            totalQuestions={liveQuizQuestions.length}
+            currentUser={currentUser}
+            onLoginRequest={() => {
+              handleLeaveLiveQuiz();
+              setCurrentPage('profile');
+            }}
+            liveStreamUrl={liveStreamUrl}
+          />
+     );
+  }
+
   return (
     <div className="min-h-screen bg-gray-900 text-gray-100 flex flex-col">
       <Header 
@@ -66,7 +121,7 @@ const App: React.FC = () => {
       <main className="flex-grow container mx-auto px-4 py-8 pb-24">
         {renderPage()}
       </main>
-      {!isQuizActive && <BottomNav items={navItems} currentPage={currentPage} setCurrentPage={setCurrentPage} />}
+      <BottomNav items={navItems} currentPage={currentPage} setCurrentPage={setCurrentPage} />
     </div>
   );
 };

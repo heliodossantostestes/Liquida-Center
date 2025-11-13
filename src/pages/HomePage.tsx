@@ -1,8 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import ProductCard from '../components/ProductCard';
-import { Product, UserProfile, QuizQuestion } from '../types';
-import QuiziGame from '../components/QuiziGame';
+import { Product } from '../types';
 import ImageCarousel from '../components/ImageCarousel';
 
 interface LiveQuizState {
@@ -12,15 +11,10 @@ interface LiveQuizState {
 }
 
 interface HomePageProps {
-  currentUser: UserProfile | null;
-  openProfilePage: () => void;
-  setIsQuizActive: (isActive: boolean) => void;
-  liveQuizQuestions: QuizQuestion[];
-  activeLiveQuestion: QuizQuestion | null;
-  liveStreamUrl: string;
+  onJoinLiveQuiz: () => void;
 }
 
-const HomePage: React.FC<HomePageProps> = ({ currentUser, openProfilePage, setIsQuizActive, liveQuizQuestions, activeLiveQuestion, liveStreamUrl }) => {
+const HomePage: React.FC<HomePageProps> = ({ onJoinLiveQuiz }) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
   const [liveQuizState, setLiveQuizState] = useState<LiveQuizState>({ active: false, title: '', message: ''});
@@ -76,7 +70,7 @@ const HomePage: React.FC<HomePageProps> = ({ currentUser, openProfilePage, setIs
         <h2 className="text-3xl font-bold mb-2 text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-yellow-400 animate-pulse">{liveQuizState.title}</h2>
         <p className="text-gray-400 mb-6">{liveQuizState.message}</p>
         <button 
-            onClick={() => setIsQuizActive(true)}
+            onClick={onJoinLiveQuiz}
             className="bg-gradient-to-r from-brand-purple to-neon-blue text-white font-bold py-3 px-8 rounded-full shadow-lg hover:shadow-xl transform hover:scale-105 transition">
             Participar do Quiz
         </button>
@@ -85,7 +79,6 @@ const HomePage: React.FC<HomePageProps> = ({ currentUser, openProfilePage, setIs
 
   return (
     <div className="space-y-12">
-      {/* The QuiziGame component will now be rendered fullscreen via App state, triggered by the banner button */}
       {liveQuizState.active ? renderQuizBanner() : <ImageCarousel />}
       
       <div>

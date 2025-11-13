@@ -1,9 +1,18 @@
 
-
-
 import React from 'react';
-import { Video } from '../types';
+import { Video, QuizQuestion, UserProfile } from '../types';
 import { Heart, MessageCircle, Share2, MoreVertical } from 'lucide-react';
+import QuiziGame from '../components/QuiziGame';
+
+interface VideosPageProps {
+  isInLiveQuiz: boolean;
+  onLeaveLiveQuiz: () => void;
+  activeQuestion: QuizQuestion | null;
+  totalQuestions: number;
+  currentUser: UserProfile | null;
+  onLoginRequest: () => void;
+  liveStreamUrl: string;
+}
 
 const mockVideos: Video[] = [
   { id: 1, user: '@comerciodavila', avatar: 'https://picsum.photos/seed/avatar1/48/48', url: 'https://www.w3schools.com/html/mov_bbb.mp4', description: 'Promoção imperdível na nossa loja essa semana! 🚀 #promo #local' },
@@ -50,7 +59,21 @@ const VideoCard: React.FC<{ video: Video }> = ({ video }) => {
 };
 
 
-const VideosPage: React.FC = () => {
+const VideosPage: React.FC<VideosPageProps> = (props) => {
+    
+    if (props.isInLiveQuiz) {
+        return (
+            <QuiziGame
+                activeQuestion={props.activeQuestion}
+                totalQuestions={props.totalQuestions}
+                currentUser={props.currentUser}
+                onLoginRequest={props.onLoginRequest}
+                onLeaveLiveQuiz={props.onLeaveLiveQuiz}
+                liveStreamUrl={props.liveStreamUrl}
+            />
+        );
+    }
+    
     return (
         <div className="h-full">
             <h1 className="text-3xl font-bold mb-4 text-center">Vídeos</h1>

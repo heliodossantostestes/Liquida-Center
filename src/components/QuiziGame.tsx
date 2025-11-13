@@ -8,7 +8,7 @@ interface QuiziGameProps {
     totalQuestions: number;
     currentUser: UserProfile | null;
     onLoginRequest: () => void;
-    setIsQuizActive: (isActive: boolean) => void;
+    onLeaveLiveQuiz: () => void;
     liveStreamUrl: string;
 }
 
@@ -29,7 +29,7 @@ interface LiveStats {
     likes: number;
 }
 
-const QuiziGame: React.FC<QuiziGameProps> = ({ activeQuestion, totalQuestions, currentUser, onLoginRequest, setIsQuizActive, liveStreamUrl }) => {
+const QuiziGame: React.FC<QuiziGameProps> = ({ activeQuestion, totalQuestions, currentUser, onLoginRequest, onLeaveLiveQuiz, liveStreamUrl }) => {
     const [timeLeft, setTimeLeft] = useState(15);
     const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
     const [showResults, setShowResults] = useState(false);
@@ -60,7 +60,7 @@ const QuiziGame: React.FC<QuiziGameProps> = ({ activeQuestion, totalQuestions, c
         }
     }, [liveStreamUrl]);
 
-    const updateLiveStats = async (action: 'join' | 'leave' | 'like' | 'get') => {
+    const updateLiveStats = async (action: 'get' | 'like' ) => {
         try {
             if (action === 'get') {
                 const res = await fetch('/api/live-stats');
@@ -68,11 +68,10 @@ const QuiziGame: React.FC<QuiziGameProps> = ({ activeQuestion, totalQuestions, c
                     const data = await res.json();
                     setLiveStats(data);
                 }
-            } else {
+            } else { // like
                  const res = await fetch('/api/live-stats', {
                     method: 'POST',
                     body: JSON.stringify({ action }),
-                    keepalive: action === 'leave', // Important for reliability on page close
                 });
                 if (res.ok) {
                     const data = await res.json();
@@ -83,18 +82,15 @@ const QuiziGame: React.FC<QuiziGameProps> = ({ activeQuestion, totalQuestions, c
             console.error(`Failed to ${action} live stats`, err);
         }
     };
-
+    
+    // This effect handles polling for stats
     useEffect(() => {
-        // User joins the live stream
-        updateLiveStats('join');
-        
         // Poll for stats updates
         statsIntervalRef.current = window.setInterval(() => updateLiveStats('get'), 3000);
 
-        // User leaves the live stream
+        // Cleanup on component unmount
         return () => {
             clearInterval(statsIntervalRef.current);
-            updateLiveStats('leave');
         };
     }, []);
 
@@ -141,7 +137,7 @@ const QuiziGame: React.FC<QuiziGameProps> = ({ activeQuestion, totalQuestions, c
     
     const handleExitGame = (e: React.MouseEvent) => {
         e.stopPropagation();
-        setIsQuizActive(false);
+        onLeaveLiveQuiz();
     };
     
     const handleSendMessage = (e: React.FormEvent) => {
