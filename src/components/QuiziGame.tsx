@@ -82,13 +82,54 @@ const QuiziGame: React.FC<QuiziGameProps> = ({ currentUser, onLoginRequest, onLe
         return () => clearInterval(pollIntervalRef.current);
     }, []);
 
+    const displayResults = () => {
+        if (!liveQuestion) return;
+        setShowResults(true);
+  
+        // Generate mock percentages for demonstration
+        const correctVotePercentage = Math.floor(Math.random() * 41) + 50; // 50% to 90%
+        const incorrectVotePercentage = 100 - correctVotePercentage;
+        
+        const percentages: [number, number] = [0, 0];
+        if(liveQuestion.correctAnswerIndex !== null) {
+            percentages[liveQuestion.correctAnswerIndex] = correctVotePercentage;
+            percentages[1 - liveQuestion.correctAnswerIndex] = incorrectVotePercentage;
+        }
+        
+        setAnswerPercentages(percentages);
+      };
+
+    useEffect(() => {
+        if (liveQuestion && liveQuestion.id !== prevQuestionId.current) {
+            prevQuestionId.current = liveQuestion.id;
+            setShowResults(false);
+            setSelectedAnswer(null);
+            setAnswerPercentages(null);
+            setTimeLeft(15);
+        }
+    }, [liveQuestion]);
+
+    useEffect(() => {
+        if (liveQuestion && !showResults && timeLeft > 0) {
+            timerRef.current = window.setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
+        } else if (liveQuestion && !showResults && timeLeft === 0) {
+            window.clearTimeout(timerRef.current);
+            if (selectedAnswer === null) {
+                setIsEligibleForPrize(false);
+            }
+            displayResults();
+        }
+        return () => window.clearTimeout(timerRef.current);
+    }, [liveQuestion, showResults, timeLeft, selectedAnswer]);
+
+
     const handleAnswerClick = (index: number) => {
         if (selectedAnswer !== null || !liveQuestion || timeLeft === 0) return;
         setSelectedAnswer(index);
-        // This is a mock; real logic would be server-side
-        // if (index !== liveQuestion.correctAnswerIndex) {
-        //     setIsEligibleForPrize(false);
-        // }
+        
+        if (index !== liveQuestion.correctAnswerIndex) {
+            setIsEligibleForPrize(false);
+        }
     };
 
     const handleExitGame = (e: React.MouseEvent) => {
@@ -137,6 +178,22 @@ const QuiziGame: React.FC<QuiziGameProps> = ({ currentUser, onLoginRequest, onLe
         setAnimatedHearts(prev => [...prev, { id: Date.now(), x: rect.left, y: rect.top, size: 24 }]);
         setTimeout(() => setAnimatedHearts(prev => prev.slice(1)), 2000);
     };
+    
+    const getButtonClass = (index: number) => {
+        if (showResults && liveQuestion && liveQuestion.correctAnswerIndex !== null) {
+            const isCorrect = index === liveQuestion.correctAnswerIndex;
+            const isSelected = index === selectedAnswer;
+            if (isCorrect) return "bg-green-600";
+            if (isSelected && !isCorrect) return "bg-red-600";
+            return "bg-gray-700 opacity-60";
+        }
+        
+        if (selectedAnswer === index) {
+            return "bg-brand-purple ring-2 ring-white";
+        }
+        
+        return "bg-gray-700 hover:bg-brand-purple-dark";
+    };
 
     return (
         <div className="fixed inset-0 bg-black z-50 flex flex-col items-center justify-center text-white">
@@ -178,14 +235,40 @@ const QuiziGame: React.FC<QuiziGameProps> = ({ currentUser, onLoginRequest, onLe
             {liveQuestion && (
                  <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-end p-4 z-40">
                     <div className="w-full max-w-md bg-gray-800/80 backdrop-blur-md rounded-2xl p-6 shadow-2xl mb-20">
-                         <div className="flex justify-between items-center mb-4">
+                        <div className="flex justify-between items-center mb-4">
                             <h3 className="text-lg font-bold">Pergunta da Rodada</h3>
-                            <div className="flex items-center bg-black/30 px-3 py-1 rounded-full text-lg font-bold"><Clock size={18} className="mr-2"/><span>15</span></div>
+                            <div className="flex items-center bg-black/30 px-3 py-1 rounded-full text-lg font-bold">
+                                <Clock size={18} className="mr-2"/>
+                                <span>{timeLeft}</span>
+                            </div>
                         </div>
+
+                        {!isEligibleForPrize && (
+                            <div className="text-center text-yellow-400 bg-black/30 p-2 rounded-md text-sm font-semibold mb-4 border border-yellow-500/50">
+                                Você não está mais concorrendo ao prêmio, mas continue jogando!
+                            </div>
+                        )}
+
                         <p className="text-xl font-semibold mb-6 text-center">{liveQuestion.question}</p>
                         <div className="space-y-4">
-                            <button onClick={() => handleAnswerClick(0)} className="w-full text-left p-4 rounded-lg font-bold text-lg transition bg-gray-700 hover:bg-brand-purple-dark"><span>{liveQuestion.optionA}</span></button>
-                            <button onClick={() => handleAnswerClick(1)} className="w-full text-left p-4 rounded-lg font-bold text-lg transition bg-gray-700 hover:bg-brand-purple-dark"><span>{liveQuestion.optionB}</span></button>
+                            {[liveQuestion.optionA, liveQuestion.optionB].map((option, index) => (
+                                <button 
+                                    key={index}
+                                    onClick={() => handleAnswerClick(index)}
+                                    disabled={selectedAnswer !== null || timeLeft === 0}
+                                    className={`w-full text-left p-4 rounded-lg font-bold text-lg transition-all duration-300 transform flex items-center justify-between ${getButtonClass(index)} ${selectedAnswer === null && timeLeft > 0 ? 'hover:scale-105' : 'cursor-not-allowed'}`}
+                                >
+                                    <div className="flex items-center">
+                                      <span>{option}</span>
+                                      {showResults && liveQuestion.correctAnswerIndex !== null && (
+                                        index === liveQuestion.correctAnswerIndex ? <CheckCircle className="ml-3 text-white"/> : (selectedAnswer === index && <XCircle className="ml-3 text-white"/>)
+                                      )}
+                                    </div>
+                                    {showResults && answerPercentages && (
+                                        <span className="text-base font-bold text-white/80">{answerPercentages[index]}%</span>
+                                    )}
+                                </button>
+                            ))}
                         </div>
                     </div>
                  </div>

@@ -1,3 +1,4 @@
+
 // api/live-question.ts
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import type { LiveQuestion } from '../../src/types';
@@ -9,6 +10,7 @@ let liveQuestion: LiveQuestion = {
   question: '',
   optionA: '',
   optionB: '',
+  correctAnswerIndex: null,
   difficulty: null,
   status: 'idle',
   startedAt: null,
@@ -34,6 +36,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
           question: newQuestionState.question || '',
           optionA: newQuestionState.optionA || '',
           optionB: newQuestionState.optionB || '',
+          correctAnswerIndex: newQuestionState.correctAnswerIndex !== undefined ? newQuestionState.correctAnswerIndex : null,
           difficulty: newQuestionState.difficulty || null,
           status: newQuestionState.status || 'idle',
           startedAt: newQuestionState.startedAt || null,

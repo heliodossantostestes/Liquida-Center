@@ -59,6 +59,7 @@ export interface LiveQuestion {
     question: string;
     optionA: string;
     optionB: string;
+    correctAnswerIndex: 0 | 1 | null;
     difficulty: 'Fácil' | 'Intermediário' | 'Difícil' | null;
     status: 'idle' | 'running' | 'ended';
     startedAt: string | null;

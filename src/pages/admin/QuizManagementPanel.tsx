@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { GoogleGenAI } from '@google/genai';
 import { QuizQuestion, QuizWinner } from '../../types';
-import { ArrowLeft, BrainCircuit, Loader, AlertTriangle, Trophy, PlusCircle, Trash2, Play, Square, Video, Power } from 'lucide-react';
+import { ArrowLeft, BrainCircuit, Loader, AlertTriangle, Trophy, PlusCircle, Trash2, Play, Square, Video, Power, Check } from 'lucide-react';
 
 interface QuizManagementPanelProps {
     onBack: () => void;
@@ -12,6 +12,8 @@ interface QuizManagementPanelProps {
 
 const mockWinners: QuizWinner[] = [
     { id: 'user-5', name: 'Maria_Gamer', winDate: '11/11/2025', prizeAmount: 50.00 },
+    { id: 'user-8', name: 'Julia_M', winDate: '10/11/2025', prizeAmount: 25.00 },
+    { id: 'user-2', name: 'Carlos_Vendas', winDate: '10/11/2025', prizeAmount: 25.00 },
 ];
 
 const initialNewQuestionState: Omit<QuizQuestion, 'id' | 'status'> = {
@@ -26,13 +28,20 @@ const QuizManagementPanel: React.FC<QuizManagementPanelProps> = ({ onBack, liveS
     const [isLiveActive, setIsLiveActive] = useState(false);
     const [isUpdatingLiveState, setIsUpdatingLiveState] = useState(false);
     const [activeQuestionId, setActiveQuestionId] = useState<string | null>(null);
+    const [questionResults, setQuestionResults] = useState<Record<string, { correct: number, incorrect: number }>>({});
 
     useEffect(() => {
         const fetchInitialState = async () => {
             try {
-                const res = await fetch('/api/quiz-state');
-                if (res.ok) setIsLiveActive((await res.json()).active);
-            } catch (err) { console.error("Failed to fetch initial quiz state", err); }
+                const resQuiz = await fetch('/api/quiz-state');
+                if (resQuiz.ok) setIsLiveActive((await resQuiz.json()).active);
+
+                const resQuestion = await fetch('/api/live-question');
+                if (resQuestion.ok) {
+                    const qData = await resQuestion.json();
+                    if (qData.active) setActiveQuestionId(qData.id);
+                }
+            } catch (err) { console.error("Failed to fetch initial state", err); }
         };
         fetchInitialState();
     }, []);
@@ -64,6 +73,7 @@ const QuizManagementPanel: React.FC<QuizManagementPanelProps> = ({ onBack, liveS
                     question: question.question,
                     optionA: question.options[0],
                     optionB: question.options[1],
+                    correctAnswerIndex: question.correctAnswerIndex,
                     difficulty: question.difficulty,
                     status: 'running',
                     startedAt: new Date().toISOString(),
@@ -78,13 +88,22 @@ const QuizManagementPanel: React.FC<QuizManagementPanelProps> = ({ onBack, liveS
     };
 
     const handleClearLiveQuestion = async () => {
+        const endedQuestionId = activeQuestionId;
         try {
             const res = await fetch('/api/live-question', {
                 method: 'POST',
-                body: JSON.stringify({ active: false, id: null, question: '', optionA: '', optionB: '', difficulty: null, status: 'idle', startedAt: null })
+                body: JSON.stringify({ active: false, id: null, question: '', optionA: '', optionB: '', difficulty: null, status: 'idle', startedAt: null, correctAnswerIndex: null })
             });
             if (!res.ok) throw new Error("Failed to clear question");
+            
+            if (endedQuestionId) {
+                // Generate and store mock results for the finished question
+                const correct = Math.floor(Math.random() * 50) + 50; // 50-99
+                const incorrect = 100 - correct;
+                setQuestionResults(prev => ({ ...prev, [endedQuestionId]: { correct, incorrect } }));
+            }
             setActiveQuestionId(null);
+
         } catch (err) {
             console.error(err);
             alert("Erro ao limpar pergunta da live.");
@@ -140,11 +159,20 @@ const QuizManagementPanel: React.FC<QuizManagementPanelProps> = ({ onBack, liveS
                                     <p className="text-sm font-semibold text-gray-200 flex-grow pr-2">{index + 1}. {q.question}</p>
                                     <button onClick={() => handleDeleteQuestion(q.id)} className="ml-2 text-red-500 hover:text-red-400"><Trash2 size={16}/></button>
                                 </div>
+                                <div className="text-xs mt-2 space-y-1">
+                                    <p className={q.correctAnswerIndex === 0 ? 'text-green-400 font-bold' : 'text-gray-400'}>A) {q.options[0]}</p>
+                                    <p className={q.correctAnswerIndex === 1 ? 'text-green-400 font-bold' : 'text-gray-400'}>B) {q.options[1]}</p>
+                                </div>
                                 <div className="mt-3 pt-2 border-t border-gray-700/50">
                                     {activeQuestionId === q.id ? (
                                         <div className="flex items-center justify-between">
                                             <div className="text-sm font-bold animate-pulse text-yellow-400 flex items-center"><Loader size={14} className="animate-spin mr-2"/> AO VIVO</div>
                                             <button onClick={handleClearLiveQuestion} className="flex items-center text-sm px-3 py-2 bg-red-600 hover:bg-red-700 rounded transition-colors font-semibold"><Square size={16} className="mr-2"/> Limpar da Live</button>
+                                        </div>
+                                    ) : questionResults[q.id] ? (
+                                        <div className="text-xs font-bold">
+                                            <p className="text-green-400">Acertos: {questionResults[q.id].correct}%</p>
+                                            <p className="text-red-400">Erros: {questionResults[q.id].incorrect}%</p>
                                         </div>
                                     ) : (
                                         <button onClick={() => handleBroadcastQuestion(q)} className="w-full flex items-center justify-center text-sm px-3 py-2 bg-green-600 hover:bg-green-700 rounded transition-colors font-semibold"><Play size={16} className="mr-2"/> Iniciar na Live</button>
@@ -153,6 +181,28 @@ const QuizManagementPanel: React.FC<QuizManagementPanelProps> = ({ onBack, liveS
                             </div>
                         ))}
                     </div>
+                </div>
+            </div>
+            
+            <div className="space-y-4 pt-4 border-t border-gray-700">
+                <h4 className="text-xl font-bold text-gray-200">🏆 Hall da Fama do Quizi</h4>
+                <div className="bg-gray-900/50 p-4 rounded-lg">
+                    <ul className="space-y-2">
+                        {mockWinners.map((winner) => (
+                             <li key={winner.id + winner.winDate} className="flex items-center justify-between p-3 bg-gray-800 rounded-md">
+                                <div className="flex items-center">
+                                    <img src={`https://i.pravatar.cc/40?u=${winner.id}`} alt={winner.name} className="w-8 h-8 rounded-full mr-3" />
+                                    <div>
+                                        <span className="font-semibold text-white block">{winner.name}</span>
+                                        <span className="text-xs text-gray-400">{winner.winDate}</span>
+                                    </div>
+                                </div>
+                                <span className="font-bold text-lg text-yellow-400">
+                                    R$ {winner.prizeAmount.toFixed(2).replace('.', ',')}
+                                </span>
+                             </li>
+                        ))}
+                    </ul>
                 </div>
             </div>
         </div>
