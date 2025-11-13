@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { User, LogIn, Edit, Store, PackagePlus, BarChart2, Shield, PlayCircle, Users } from 'lucide-react';
+import { User, LogIn, Edit, Store, PackagePlus, BarChart2, Shield, PlayCircle, Users, Loader } from 'lucide-react';
 import { UserProfile, QuizQuestion, UserRole } from '../types';
 import QuizManagementPanel from './admin/QuizManagementPanel';
 
@@ -35,6 +36,7 @@ const LoginForm: React.FC<AuthFormProps> = ({ setCurrentUser, setShowLogin }) =>
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     const rememberedEmail = localStorage.getItem('rememberedEmail');
@@ -44,22 +46,31 @@ const LoginForm: React.FC<AuthFormProps> = ({ setCurrentUser, setShowLogin }) =>
     }
   }, []);
 
-  const handleLogin = () => {
-    if (rememberMe) {
-        localStorage.setItem('rememberedEmail', email);
-    } else {
-        localStorage.removeItem('rememberedEmail');
+  const handleLogin = async () => {
+    if (!email || !password) {
+        alert("Email e senha são obrigatórios.");
+        return;
     }
-
-    if (email.toLowerCase() === 'heliosilviosantos@gmail.com' && password === 'helio123') {
-      setCurrentUser({ id: 'admin-01', name: 'Hélio Santos', email: email, role: 'admin' });
-      return;
-    }
-    if (email && password) {
-      const mockRole = email.includes('merchant') ? 'merchant' : 'user';
-      setCurrentUser({ id: 'user-01', name: 'Fulano de Tal', email: email, role: mockRole });
-    } else {
-      alert("Por favor, preencha email e senha.");
+    setIsLoading(true);
+    try {
+        const res = await fetch('/api/login', {
+            method: 'POST',
+            body: JSON.stringify({ email, password }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+            throw new Error(data.error || 'Erro desconhecido');
+        }
+        setCurrentUser(data);
+        if (rememberMe) {
+            localStorage.setItem('rememberedEmail', email);
+        } else {
+            localStorage.removeItem('rememberedEmail');
+        }
+    } catch (err: any) {
+        alert(`Erro ao fazer login: ${err.message}`);
+    } finally {
+        setIsLoading(false);
     }
   };
 
@@ -100,8 +111,8 @@ const LoginForm: React.FC<AuthFormProps> = ({ setCurrentUser, setShowLogin }) =>
                 </label>
             </div>
         </div>
-        <button type="submit" className="w-full bg-brand-purple hover:bg-brand-purple-dark text-white font-bold py-3 px-4 rounded-lg transition duration-300">
-          Entrar
+        <button type="submit" disabled={isLoading} className="w-full bg-brand-purple hover:bg-brand-purple-dark text-white font-bold py-3 px-4 rounded-lg transition duration-300 flex justify-center items-center disabled:bg-gray-600">
+          {isLoading ? <Loader className="animate-spin" /> : 'Entrar'}
         </button>
       </form>
       <p className="text-center text-sm text-gray-400">Não tem uma conta? <button onClick={() => setShowLogin(false)} className="font-medium text-brand-purple-light hover:underline">Cadastre-se</button></p>
@@ -113,7 +124,8 @@ const RegistrationForm: React.FC<AuthFormProps> = ({ setCurrentUser, setShowLogi
   const [role, setRole] = useState<UserRole>('user');
 
    const handleRegister = () => {
-      setCurrentUser({ id: 'new-user-01', name: 'Novo Usuário', email: 'novo@email.com', role: role });
+      // In a real app, this would call a registration API
+      alert("Funcionalidade de cadastro não implementada neste protótipo.");
    };
 
   return (
@@ -160,25 +172,83 @@ const RegistrationForm: React.FC<AuthFormProps> = ({ setCurrentUser, setShowLogi
   )
 };
 
-const MerchantDashboard = () => (
-  <div className="p-8 bg-gray-800 rounded-xl shadow-lg shadow-brand-purple/20">
-    <h3 className="text-2xl font-bold mb-6 flex items-center"><Store className="mr-3 text-brand-purple-light"/> Painel do Comerciante</h3>
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <button className="flex flex-col items-center justify-center p-6 bg-gray-700 rounded-lg hover:bg-brand-purple-dark transition group">
-          <PackagePlus size={40} className="mb-2 text-brand-purple-light group-hover:text-white" />
-          <span className="font-semibold">Cadastrar Produto</span>
-      </button>
-      <button className="flex flex-col items-center justify-center p-6 bg-gray-700 rounded-lg hover:bg-brand-purple-dark transition group">
-          <BarChart2 size={40} className="mb-2 text-brand-purple-light group-hover:text-white" />
-          <span className="font-semibold">Ver Desempenho</span>
-      </button>
-      <button className="flex flex-col items-center justify-center p-6 bg-gray-700 rounded-lg hover:bg-brand-purple-dark transition group">
-          <Edit size={40} className="mb-2 text-brand-purple-light group-hover:text-white" />
-          <span className="font-semibold">Editar Loja</span>
-      </button>
-    </div>
-  </div>
-);
+const AddProductForm: React.FC<{ currentUser: UserProfile; onProductAdded: () => void }> = ({ currentUser, onProductAdded }) => {
+    const [name, setName] = useState('');
+    const [price, setPrice] = useState('');
+    const [description, setDescription] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!name || !price || !description) {
+            alert('Por favor, preencha todos os campos.');
+            return;
+        }
+        setIsSubmitting(true);
+        try {
+            const res = await fetch('/api/products', {
+                method: 'POST',
+                body: JSON.stringify({
+                    name,
+                    price: parseFloat(price),
+                    description,
+                    storeId: currentUser.id,
+                }),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.error || 'Falha ao cadastrar produto.');
+            }
+            alert('Produto cadastrado com sucesso! (Mock)');
+            onProductAdded();
+            setName('');
+            setPrice('');
+            setDescription('');
+        } catch (error: any) {
+            alert(`Erro: ${error.message}`);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    return (
+        <form onSubmit={handleSubmit} className="p-6 bg-gray-700 rounded-lg mt-6 space-y-4 border border-brand-purple/50">
+            <h4 className="text-lg font-bold">Novo Produto</h4>
+            <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Nome do Produto" className="w-full bg-gray-800 p-2 rounded-md border border-gray-600 focus:ring-brand-purple"/>
+            <input type="number" step="0.01" value={price} onChange={e => setPrice(e.target.value)} placeholder="Preço (ex: 49.90)" className="w-full bg-gray-800 p-2 rounded-md border border-gray-600"/>
+            <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Descrição do Produto" className="w-full bg-gray-800 p-2 rounded-md border border-gray-600 h-24"></textarea>
+            <button type="submit" disabled={isSubmitting} className="w-full flex items-center justify-center py-2 px-4 bg-brand-purple hover:bg-brand-purple-dark rounded-md font-bold disabled:bg-gray-500">
+                {isSubmitting ? <Loader className="animate-spin"/> : 'Salvar Produto'}
+            </button>
+        </form>
+    );
+};
+
+
+const MerchantDashboard: React.FC<{ currentUser: UserProfile }> = ({ currentUser }) => {
+    const [showAddForm, setShowAddForm] = useState(false);
+
+    return (
+        <div className="p-8 bg-gray-800 rounded-xl shadow-lg shadow-brand-purple/20">
+            <h3 className="text-2xl font-bold mb-6 flex items-center"><Store className="mr-3 text-brand-purple-light"/> Painel do Comerciante</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <button onClick={() => setShowAddForm(!showAddForm)} className="flex flex-col items-center justify-center p-6 bg-gray-700 rounded-lg hover:bg-brand-purple-dark transition group">
+                    <PackagePlus size={40} className="mb-2 text-brand-purple-light group-hover:text-white" />
+                    <span className="font-semibold">{showAddForm ? 'Fechar Formulário' : 'Cadastrar Produto'}</span>
+                </button>
+                <button className="flex flex-col items-center justify-center p-6 bg-gray-700 rounded-lg hover:bg-brand-purple-dark transition group">
+                    <BarChart2 size={40} className="mb-2 text-brand-purple-light group-hover:text-white" />
+                    <span className="font-semibold">Ver Desempenho</span>
+                </button>
+                <button className="flex flex-col items-center justify-center p-6 bg-gray-700 rounded-lg hover:bg-brand-purple-dark transition group">
+                    <Edit size={40} className="mb-2 text-brand-purple-light group-hover:text-white" />
+                    <span className="font-semibold">Editar Loja</span>
+                </button>
+            </div>
+            {showAddForm && <AddProductForm currentUser={currentUser} onProductAdded={() => setShowAddForm(false)} />}
+        </div>
+    );
+};
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ setAdminView }) => (
   <div className="p-8 bg-gray-800 rounded-xl shadow-lg shadow-neon-blue/20">
@@ -216,7 +286,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ currentUser, setCurrentUser, 
       </button>
     </div>
 
-    {currentUser?.role === 'merchant' && <MerchantDashboard />}
+    {currentUser?.role === 'merchant' && <MerchantDashboard currentUser={currentUser} />}
     {currentUser?.role === 'admin' && adminView === 'main' && <AdminDashboard setAdminView={setAdminView} />}
     {currentUser?.role === 'admin' && adminView === 'quiz' && <QuizManagementPanel onBack={() => setAdminView('main')} onSaveQuiz={setLiveQuizQuestions} setActiveQuestion={setActiveLiveQuestion} {...liveProps} />}
   </div>

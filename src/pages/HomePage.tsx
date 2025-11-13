@@ -1,15 +1,9 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import ProductCard from '../components/ProductCard';
 import { Product, UserProfile, QuizQuestion } from '../types';
 import QuiziGame from '../components/QuiziGame';
 import ImageCarousel from '../components/ImageCarousel';
-
-const featuredProducts: Product[] = [
-  { id: 1, name: 'Pizza Artesanal', price: 'R$ 45,90', image: 'https://picsum.photos/seed/pizza/400/400', seller: 'Pizzaria do Zé', promotion: '20% OFF' },
-  { id: 2, name: 'Corte de Cabelo', price: 'R$ 30,00', image: 'https://picsum.photos/seed/haircut/400/400', seller: 'Barbearia Estilo' },
-  { id: 3, name: 'Bolo de Chocolate', price: 'R$ 55,00', image: 'https://picsum.photos/seed/cake/400/400', seller: 'Dona Benta Bolos' },
-  { id: 4, name: 'Manutenção PC', price: 'Sob Consulta', image: 'https://picsum.photos/seed/tech/400/400', seller: 'PC Rápido' },
-];
 
 interface HomePageProps {
   currentUser: UserProfile | null;
@@ -22,6 +16,36 @@ interface HomePageProps {
 }
 
 const HomePage: React.FC<HomePageProps> = ({ currentUser, openProfilePage, setIsQuizActive, liveQuizQuestions, activeLiveQuestion, isLiveStreamActive, liveStreamUrl }) => {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        setIsLoading(true);
+        const res = await fetch('/api/products');
+        if (!res.ok) throw new Error('Failed to fetch');
+        const data = await res.json();
+        
+        // Adapta os dados da API para o formato esperado pelo componente Product
+        const adaptedProducts: Product[] = data.slice(0, 4).map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            price: `R$ ${p.price.toFixed(2).replace('.', ',')}`,
+            image: `https://picsum.photos/seed/${p.id}/400/400`,
+            seller: p.storeId === 'lojista-1' ? 'Loja Exemplo' : p.storeId, // Adapta o nome do vendedor
+        }));
+        setProducts(adaptedProducts);
+      } catch (error) {
+        console.error("Error fetching products:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, []);
+
 
   return (
     <div className="space-y-12">
@@ -29,11 +53,15 @@ const HomePage: React.FC<HomePageProps> = ({ currentUser, openProfilePage, setIs
       
       <div>
         <h2 className="text-3xl font-bold mb-6 text-transparent bg-clip-text bg-gradient-to-r from-brand-purple-light to-neon-blue">Vitrine Principal ✨</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-          {featuredProducts.map(product => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
+        {isLoading ? (
+          <p className="text-center text-gray-400">Carregando produtos...</p>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+            {products.map(product => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
