@@ -1,24 +1,27 @@
 {
-  "name": "liquida-center",
-  "private": true,
-  "version": "0.0.0",
+  "name": "liquida-center-replit",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "ts-node-esm server.ts",
     "build": "vite build",
-    "preview": "vite preview"
+    "start": "NODE_ENV=production ts-node-esm server.ts"
   },
   "dependencies": {
-    "react": "^19.2.0",
-    "lucide-react": "^0.553.0",
-    "react-dom": "^19.2.0",
-    "@google/genai": "latest",
-    "@vercel/node": "^5.5.6"
+    "@vercel/node": "^3.0.0",
+    "express": "^4.18.2",
+    "lucide-react": "^0.378.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
   },
   "devDependencies": {
-    "@types/node": "^22.14.0",
-    "@vitejs/plugin-react": "^5.0.0",
-    "typescript": "~5.8.2",
-    "vite": "^6.2.0"
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.12.7",
+    "@types/react": "^18.2.66",
+    "@types/react-dom": "^18.2.22",
+    "@vitejs/plugin-react": "^4.2.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.2.2",
+    "vite": "^5.2.0"
   }
 }

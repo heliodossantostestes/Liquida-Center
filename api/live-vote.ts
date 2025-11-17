@@ -20,7 +20,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
     const questionVotesData = votes[questionId] || { votes: [0, 0], voters: new Set() };
     const totalVotes = questionVotesData.votes[0] + questionVotesData.votes[1];
     
-    let percentages = [0, 0];
+    let percentages: [number, number] = [0, 0];
     if (totalVotes > 0) {
         percentages = [
             Math.round((questionVotesData.votes[0] / totalVotes) * 100),
@@ -37,7 +37,10 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
                 percentages[1] += diff;
             }
         }
+    } else {
+        percentages = [50, 50]; // Default to 50/50 if no votes
     }
+
 
     return res.status(200).json({
       questionId,
@@ -49,7 +52,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
 
   if (req.method === 'POST') {
     try {
-      const { questionId, userId, voteIndex } = JSON.parse(req.body);
+      const { questionId, userId, voteIndex } = req.body;
 
       if (!questionId || !userId || (voteIndex !== 0 && voteIndex !== 1)) {
         return res.status(400).json({ error: 'Missing or invalid fields' });

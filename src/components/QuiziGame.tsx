@@ -27,7 +27,6 @@ const QuiziGame: React.FC<QuiziGameProps> = ({ currentUser, onLoginRequest, onLe
     const [liveStats, setLiveStats] = useState<LiveStats>({ viewers: 0, likes: 0 });
 
     const prevQuestionId = useRef<string | null>(null);
-    // FIX: Using ReturnType<typeof setInterval> ensures the ref type is compatible with both browser (number) and Node (Timeout) environments.
     const pollIntervalRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
     const processedUrl = useMemo(() => {
@@ -72,7 +71,6 @@ const QuiziGame: React.FC<QuiziGameProps> = ({ currentUser, onLoginRequest, onLe
     }, [liveQuestion]);
 
     useEffect(() => {
-        // FIX: Using ReturnType<typeof setInterval> ensures the variable type is compatible with both browser (number) and Node (Timeout) environments.
         let timerInterval: ReturnType<typeof setInterval> | undefined;
         if (liveQuestion?.status === 'running' && liveQuestion.startedAt) {
             timerInterval = setInterval(() => {
@@ -91,7 +89,6 @@ const QuiziGame: React.FC<QuiziGameProps> = ({ currentUser, onLoginRequest, onLe
     }, [liveQuestion, showResults]);
 
     useEffect(() => {
-        // FIX: Using ReturnType<typeof setInterval> ensures the variable type is compatible with both browser (number) and Node (Timeout) environments.
         let resultPollInterval: ReturnType<typeof setInterval> | undefined;
         const fetchResults = async () => {
             if (!liveQuestion?.id) return;

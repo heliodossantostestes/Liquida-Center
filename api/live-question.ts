@@ -23,7 +23,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
 
   if (req.method === 'POST') {
     try {
-      const newQuestionState = JSON.parse(req.body);
+      const newQuestionState = req.body;
       
       // Validação simples
       if (typeof newQuestionState.active !== 'boolean') {

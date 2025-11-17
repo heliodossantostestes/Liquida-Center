@@ -19,7 +19,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
 
   if (req.method === 'POST') {
     try {
-      const { userName, role, text } = JSON.parse(req.body);
+      const { userName, role, text } = req.body;
 
       if (!userName || !role || !text) {
         return res.status(400).json({ error: 'Missing fields in message body' });

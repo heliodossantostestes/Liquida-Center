@@ -20,7 +20,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
 
   if (req.method === 'POST') {
     try {
-        const { action } = JSON.parse(req.body || '{}');
+        const { action } = req.body;
 
         switch (action) {
             case 'join':

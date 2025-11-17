@@ -16,7 +16,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
 
   if (req.method === 'POST') {
     try {
-      const { active, title, message } = JSON.parse(req.body || '{}');
+      const { active, title, message } = req.body;
       
       quizState = {
         active: Boolean(active),

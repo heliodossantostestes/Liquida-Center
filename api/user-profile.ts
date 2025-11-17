@@ -21,7 +21,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
 
   if (req.method === 'POST') {
     try {
-      const { displayName, avatarUrl } = JSON.parse(req.body);
+      const { displayName, avatarUrl } = req.body;
       
       // Validação simples
       if (typeof displayName !== 'string' || typeof avatarUrl !== 'string') {

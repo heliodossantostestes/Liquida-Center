@@ -37,7 +37,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'POST') {
     // AQUI seria cadastro de produto real
     // Por enquanto, só retorna o que recebeu (pra você testar o fluxo)
-    const body = JSON.parse(req.body || '{}');
+    const body = req.body;
     console.log('Produto recebido (mock):', body);
 
     const newProduct: Product = {
